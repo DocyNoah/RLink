@@ -1,4 +1,5 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+import collections
 import os
 import random
 import time
@@ -43,6 +44,8 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
     save_model: bool = False
     """whether to save model into the `runs/{run_name}` folder"""
+    print_interval: int = 5
+    """the logging interval for printing to the console"""
 
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
@@ -210,6 +213,10 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         gamma=args.gamma,
     )
 
+    # Logging variables
+    epi_l_queue = collections.deque(maxlen=30)
+    epi_r_queue = collections.deque(maxlen=30)
+
     # Initialize environment
     global_step = 0
     start_time = time.time()
@@ -260,15 +267,17 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             obs = next_obs
             done = next_done
 
-            # Logging every episode
+            # Logging a episode for one env at the same time
             if "final_info" in infos:
                 for info in infos["final_info"]:
                     if info and "episode" in info:
                         epi_r = info["episode"]["r"]
                         epi_l = info["episode"]["l"]
-                        print(f"global_step={global_step}, episodic_return={epi_r}")
+                        epi_l_queue.append(epi_l)
+                        epi_r_queue.append(epi_r)
                         writer.add_scalar("charts/episodic_return", epi_r, global_step)
                         writer.add_scalar("charts/episodic_length", epi_l, global_step)
+                    break
 
         # Compute value for the last step after the num_steps
         # bootstrap value if not done
@@ -305,7 +314,10 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         clip_frac = train_data["clip_frac"]
         explained_var = train_data["explained_variance"]
 
-        # Logging
+        # Logging - tensorboard
+        sps = int(global_step / (time.time() - start_time))
+        etc = common.get_etc(args.total_timesteps, global_step, start_time, time.time())
+        etc_str = common.time_to_str(etc)
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss, global_step)
         writer.add_scalar("losses/policy_loss", pg_loss, global_step)
@@ -314,8 +326,20 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         writer.add_scalar("losses/approx_kl", approx_kl, global_step)
         writer.add_scalar("losses/clipfrac", clip_frac, global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-        print("SPS:", int(global_step / (time.time() - start_time)))
+        writer.add_scalar("charts/sps", sps, global_step)
+        writer.add_scalar("charts/elapsed_time", time.time() - start_time, global_step)
+        # Logging - console
+        if iteration % args.print_interval == 0:
+            print(
+                f"Iter: {iteration}/{args.num_iterations}  "
+                f"Epi R: {np.mean(epi_r_queue):5.1f}  "
+                f"Epi L: {np.mean(epi_l_queue):.0f}  "
+                f"sps: {sps:4.0f}  "
+                f"etc: {etc_str}  "
+                f"Value Loss: {v_loss:.3f}  "
+                f"Policy Loss: {pg_loss:.3f}  "
+                f"Entropy Loss: {entropy_loss:.3f}  "
+            )
 
     if args.save_model:
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
