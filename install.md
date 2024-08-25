@@ -34,3 +34,9 @@ pip install "gymnasium[atari]"
 pip install "gymnasium[accept-rom-license]"
 pip install opencv-python
 ```
+
+MuJoCo
+
+```bash
+pip install "gymnasium[mujoco]"
+```
