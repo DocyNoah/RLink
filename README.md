@@ -30,3 +30,8 @@ RLink uses several tools including:
 ## Get Started
 
 See [install.md](./install.md)
+
+## Code Quality
+
+- **No Warnings:** The code is carefully written to make sure no warnings appear when running it. This focus on quality helps keep the code clean and free from problems caused by ignored warnings.
+- **Type Hinting:** Every function and method is clearly annotated with type hints for both inputs and outputs. This makes the code easier to understand and helps prevent mistakes related to incorrect types, making the code more reliable and easier to maintain.
