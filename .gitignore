@@ -20,11 +20,8 @@ ENV/
 
 # VSCode
 .vscode/*
-# !.vscode/settings.json
-# !.vscode/tasks.json
-# !.vscode/launch.json
 # !.vscode/extensions.json
-# !.vscode/*.code-snippets
+# !.vscode/settings.json
 
 # MacOS
 .DS_Store
@@ -34,5 +31,9 @@ output/
 log/
 *.log
 runs/
-wandb/
+**wandb**/
 weights/
+ckpt/
+ckpts/
+checkpoint/
+checkpoints/
