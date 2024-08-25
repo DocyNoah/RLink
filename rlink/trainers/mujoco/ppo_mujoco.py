@@ -146,7 +146,7 @@ class Agent(nn.Module):
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
 
 
-def train_ppo(args: Args) -> None:
+def train_ppo(args: Args, Agent: type[Agent]) -> None:
     # Set hyperparameters
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
@@ -424,4 +424,4 @@ def train_step(
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
-    train_ppo(args)
+    train_ppo(args, Agent)
