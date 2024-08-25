@@ -242,6 +242,17 @@ def train_ppo(args: Args) -> None:
             next_done = th.tensor(next_done, dtype=th.float32, device=device)
             reward = th.tensor(reward, dtype=th.float32, device=device).flatten()
 
+            # bootstrap value if truncated
+            # https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/common/on_policy_algorithm.py#L213
+            for idx, trunction in enumerate(truncations):
+                if trunction:
+                    final_obs = infos["final_observation"][idx]
+                    with th.no_grad():
+                        final_value = agent.get_value(
+                            th.tensor(final_obs, dtype=th.float32, device=device),
+                        )
+                    reward += args.gamma * final_value.flatten()
+
             # Add transition to buffer
             rollout_buffer.add(obs, action, reward, done, logprob, value)
 
