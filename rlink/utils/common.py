@@ -3,27 +3,10 @@ import os
 import platform
 import pprint
 from collections.abc import Iterable
-from datetime import datetime
 
 import numpy as np
 import torch as th
-from gymnasium import spaces
-from torch import nn
 from torch.utils.tensorboard import SummaryWriter
-
-
-def layer_init(
-    layer: nn.Module,
-    std: float = np.sqrt(2),
-    bias_const: float = 0.0,
-) -> nn.Module:
-    th.nn.init.orthogonal_(layer.weight, std)
-    th.nn.init.constant_(layer.bias, bias_const)
-    return layer
-
-
-def get_now_str() -> str:
-    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
 def create_summary_writer(
@@ -87,52 +70,6 @@ def get_device(use_cuda: bool, use_mps: bool) -> th.device:
     return th.device("cpu")
 
 
-def get_action_dim(action_space: spaces.Space) -> int:
-    if isinstance(action_space, spaces.Box):
-        return int(np.prod(action_space.shape))
-    elif isinstance(action_space, spaces.Discrete):
-        # Action is an int
-        return 1
-    elif isinstance(action_space, spaces.MultiDiscrete):
-        # Number of discrete actions
-        return int(len(action_space.nvec))
-    elif isinstance(action_space, spaces.MultiBinary):
-        # Number of binary actions
-        assert isinstance(action_space.n, int), (
-            f"Multi-dimensional MultiBinary({action_space.n}) action space is not supported. "
-            f"You can flatten it instead."
-        )
-        return int(action_space.n)
-    else:
-        raise NotImplementedError(f"{action_space} action space is not supported")
-
-
-def get_obs_shape(
-    observation_space: spaces.Space,
-) -> tuple[int, ...] | dict[str, tuple[int, ...]]:
-    """
-    Get the shape of the observation (useful for the buffers).
-    """
-    if isinstance(observation_space, spaces.Box):
-        return observation_space.shape
-    elif isinstance(observation_space, spaces.Discrete):
-        # Observation is an int
-        return (1,)
-    elif isinstance(observation_space, spaces.MultiDiscrete):
-        # Number of discrete features
-        return (int(len(observation_space.nvec)),)
-    elif isinstance(observation_space, spaces.MultiBinary):
-        # Number of binary features
-        return observation_space.shape
-    elif isinstance(observation_space, spaces.Dict):
-        return {
-            key: get_obs_shape(subspace) for (key, subspace) in observation_space.spaces.items()
-        }
-
-    else:
-        raise NotImplementedError(f"{observation_space} observation space is not supported")
-
-
 # from https://github.com/pytorch/pytorch/blob/main/torch/testing/_internal/common_utils.py#L1506
 # numpy dtypes like np.float64 are not instances, but rather classes. This leads to rather absurd
 # cases like np.float64 != np.dtype("float64") but np.float64 == np.dtype("float64").type.
@@ -185,33 +122,3 @@ def get_type_recursive(var: any) -> any:
 
 def pprint_type(var: any, **kwargs) -> None:
     pprint.pprint(get_type_recursive(var), **kwargs)
-
-
-def get_etc(total_num: int, curr_num: int, start_time: float, current_time: float) -> float:
-    """
-    Get the estimated time to completion
-    """
-    elapsed_time_per_num = (current_time - start_time) / curr_num
-    remaining_num = total_num - curr_num
-    eta = remaining_num * elapsed_time_per_num
-    return eta
-
-
-def time_to_str(time_sec: float, print_days: bool = False) -> str:
-    """Converts time in seconds to a string in the format dd:hh:mm:ss."""
-    if print_days:
-        days = time_sec // (24 * 3600)
-        time_sec %= 24 * 3600
-    else:
-        days = -1
-
-    hours = time_sec // 3600
-    time_sec %= 3600
-
-    minutes = time_sec // 60
-    time_sec %= 60
-
-    if print_days:
-        return f"{days:.0f}:{hours:02.0f}:{minutes:02.0f}:{time_sec:02.0f}"
-    else:
-        return f"{hours:.0f}:{minutes:02.0f}:{time_sec:02.0f}"

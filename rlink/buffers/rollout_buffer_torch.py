@@ -1,7 +1,7 @@
 import torch as th
 from gymnasium import spaces
 
-from rlink.utils import common
+from rlink.utils import gym_util
 
 
 class RolloutBufferTorch:
@@ -24,8 +24,8 @@ class RolloutBufferTorch:
         self._action_space = action_space
 
         # Shapes
-        self._obs_shape = common.get_obs_shape(observation_space)
-        self._action_dim = common.get_action_dim(action_space)
+        self._obs_shape = gym_util.get_obs_shape(observation_space)
+        self._action_dim = gym_util.get_action_dim(action_space)
 
         # Hyperparameters
         self._gae_lambda = gae_lambda

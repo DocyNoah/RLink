@@ -14,7 +14,7 @@ import tyro
 from torch.distributions.normal import Normal
 
 from rlink.buffers.rollout_buffer_torch import RolloutBufferTorch
-from rlink.utils import common
+from rlink.utils import common, th_util, time_util
 
 
 @dataclass
@@ -117,36 +117,40 @@ class Agent(nn.Module):
     def __init__(self, in_features: int, out_features: int):
         super().__init__()
         self.critic = nn.Sequential(
-            common.layer_init(nn.Linear(in_features, 64)),
+            th_util.layer_init(nn.Linear(in_features, 64)),
             nn.Tanh(),
-            common.layer_init(nn.Linear(64, 64)),
+            th_util.layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            common.layer_init(nn.Linear(64, 1), std=1.0),
+            th_util.layer_init(nn.Linear(64, 1), std=1.0),
         )
         self.actor_mean = nn.Sequential(
-            common.layer_init(nn.Linear(in_features, 64)),
+            th_util.layer_init(nn.Linear(in_features, 64)),
             nn.Tanh(),
-            common.layer_init(nn.Linear(64, 64)),
+            th_util.layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            common.layer_init(nn.Linear(64, out_features), std=0.01),
+            th_util.layer_init(nn.Linear(64, out_features), std=0.01),
         )
         self.actor_logstd = nn.Parameter(th.zeros(1, out_features))
 
     def get_value(self, x: th.Tensor) -> th.Tensor:
-        return self.critic(x)
+        return self.critic(x)  # (num_envs, 1)
 
-    def get_action_and_value(
+    def get_action(
         self,
         x: th.Tensor,
         action: th.Tensor | None = None,
     ) -> tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = th.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        action_mean = self.actor_mean(x)  # (num_envs, out_features)
+        action_logstd = self.actor_logstd.expand_as(action_mean)  # (num_envs, out_features)
+        action_std = th.exp(action_logstd)  # (num_envs, out_features)
+        probs = Normal(action_mean, action_std)  # (num_envs, out_features)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        # action: (num_envs, out_features)
+        # probs.log_prob(action): (num_envs, out_features)
+        # probs.log_prob(action).sum(1): (num_envs,)
+        # probs.entropy(): (num_envs, out_features)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
 
 
 def train_ppo(args: Args, Agent: type[Agent]) -> None:
@@ -159,7 +163,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
     # Setup logging
     if args.run_name is None:
-        run_name = f"{args.exp_name}--{common.get_now_str()}"
+        run_name = f"{args.exp_name}--{time_util.get_now_str()}"
     else:
         run_name = args.run_name
     if args.use_wandb:
@@ -237,7 +241,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
             # Get action
             with th.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(obs)
+                action, logprob, _ = agent.get_action(obs)
+                value = agent.get_value(obs)
                 value = value.flatten()  # (num_envs, 1) -> (num_envs,)
 
             # env.step
@@ -254,10 +259,9 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             for idx, trunction in enumerate(truncations):
                 if trunction:
                     final_obs = infos["final_observation"][idx]
+                    final_obs = th.tensor(final_obs, dtype=th.float32, device=device)
                     with th.no_grad():
-                        final_value = agent.get_value(
-                            th.tensor(final_obs, dtype=th.float32, device=device),
-                        )
+                        final_value = agent.get_value(final_obs)
                     reward += args.gamma * final_value.flatten()
 
             # Add transition to buffer
@@ -316,8 +320,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
         # Logging - tensorboard
         sps = int(global_step / (time.time() - start_time))
-        etc = common.get_etc(args.total_timesteps, global_step, start_time, time.time())
-        etc_str = common.time_to_str(etc)
+        etc = time_util.get_etc(args.total_timesteps, global_step, start_time, time.time())
+        etc_str = time_util.time_to_str(etc)
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss, global_step)
         writer.add_scalar("losses/policy_loss", pg_loss, global_step)
@@ -383,10 +387,19 @@ def train_step(
             end = start + args.minibatch_size
             mb_inds = b_inds[start:end]
 
-            _, new_log_prob, entropy, new_value = agent.get_action_and_value(
-                b_obs[mb_inds], b_action[mb_inds]
+            # Sample mini-batch
+            mb_obs = b_obs[mb_inds]
+            mb_action = b_action[mb_inds]
+            mb_log_prob = b_log_prob[mb_inds]
+            mb_value = b_value[mb_inds]
+            mb_advantage = b_advantage[mb_inds]
+            mb_return = b_return[mb_inds]
+
+            _, new_log_prob, entropy = agent.get_action(
+                mb_obs, mb_action
             )
-            log_ratio = new_log_prob - b_log_prob[mb_inds]
+            new_value = agent.get_value(mb_obs)
+            log_ratio = new_log_prob - mb_log_prob  # (mb_size,) = (mb_size,) - (mb_size,)
             ratio = log_ratio.exp()
 
             with th.no_grad():
@@ -395,7 +408,6 @@ def train_step(
                 approx_kl = ((ratio - 1) - log_ratio).mean()
                 clip_fracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
-            mb_advantage = b_advantage[mb_inds]
             if args.norm_adv:
                 mb_advantage = (mb_advantage - mb_advantage.mean()) / (mb_advantage.std() + 1e-8)
 
@@ -408,17 +420,17 @@ def train_step(
             # Value loss
             new_value = new_value.view(-1)
             if args.clip_vloss:
-                v_loss_unclipped = (new_value - b_return[mb_inds]) ** 2
-                v_clipped = b_value[mb_inds] + th.clamp(
-                    new_value - b_value[mb_inds],
+                v_loss_unclipped = (new_value - mb_return) ** 2
+                v_clipped = mb_value + th.clamp(
+                    new_value - mb_value,
                     -args.clip_coef,
                     args.clip_coef,
                 )
-                v_loss_clipped = (v_clipped - b_return[mb_inds]) ** 2
+                v_loss_clipped = (v_clipped - mb_return) ** 2
                 v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)
                 v_loss = 0.5 * v_loss_max.mean()
             else:
-                v_loss = 0.5 * ((new_value - b_return[mb_inds]) ** 2).mean()
+                v_loss = 0.5 * ((new_value - mb_return) ** 2).mean()
 
             entropy_loss = entropy.mean()
             loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
