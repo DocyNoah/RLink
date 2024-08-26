@@ -25,7 +25,7 @@ class Args:
     run_name: str | None = None
     """
     the name of this run, the wandb's run name and leaf directory for logging
-    (defaults to `exp_name--%Y-%m-%d_%H-%M-%S`)
+    (defaults to `exp_name--%Y%m%d_%H%M%S`)
     """
     seed: int = 1
     """seed of the experiment"""
@@ -391,6 +391,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
     envs.close()
     writer.close()
+    if args.use_wandb:
+        wandb.finish()
 
 
 def train_step(
