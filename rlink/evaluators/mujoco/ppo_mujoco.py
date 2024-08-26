@@ -1,5 +1,5 @@
 import gymnasium as gym
-import torch
+import torch as th
 
 
 def ppo_evaluate(
@@ -8,9 +8,9 @@ def ppo_evaluate(
     env_id: str,
     eval_episodes: int,
     video_path: str,
-    Model: torch.nn.Module,
+    Model: th.nn.Module,
     model_kwargs: dict,
-    device: torch.device = torch.device("cpu"),
+    device: th.device = th.device("cpu"),
     capture_video: bool = True,
     gamma: float = 0.99,
 ) -> list[float]:
@@ -27,14 +27,16 @@ def ppo_evaluate(
         ]
     )
     agent = Model(**model_kwargs).to(device)
-    agent.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+    agent.load_state_dict(th.load(model_path, map_location=device, weights_only=True))
     agent.eval()
 
     obs, _ = envs.reset()
+    obs = th.tensor(obs, dtype=th.float32, device=device)
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
-        actions, _, _ = agent.get_action(torch.Tensor(obs).to(device))
+        actions, _, _ = agent.get_action(obs)
         next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
+        next_obs = th.tensor(next_obs, dtype=th.float32, device=device)
         if "final_info" in infos:
             for info in infos["final_info"]:
                 if "episode" not in info:
