@@ -2,7 +2,7 @@ from datetime import datetime
 
 
 def get_now_str() -> str:
-    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 def get_etc(total_num: int, curr_num: int, start_time: float, current_time: float) -> float:
