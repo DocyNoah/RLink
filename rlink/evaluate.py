@@ -7,21 +7,33 @@ def ppo_evaluate(
     make_env: callable,
     env_id: str,
     eval_episodes: int,
-    run_name: str,
+    video_path: str,
     Model: torch.nn.Module,
+    model_kwargs: dict,
     device: torch.device = torch.device("cpu"),
     capture_video: bool = True,
     gamma: float = 0.99,
 ) -> list[float]:
-    envs = gym.vector.SyncVectorEnv([make_env(env_id, 0, capture_video, run_name, gamma)])
-    agent = Model(envs).to(device)
-    agent.load_state_dict(torch.load(model_path, map_location=device))
+    envs = gym.vector.SyncVectorEnv(
+        [
+            make_env(
+                env_id=env_id,
+                idx=0,
+                capture_video=capture_video,
+                video_path=video_path,
+                record_interval=1,
+                gamma=gamma,
+            )
+        ]
+    )
+    agent = Model(**model_kwargs).to(device)
+    agent.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     agent.eval()
 
     obs, _ = envs.reset()
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
-        actions, _, _, _ = agent.get_action_and_value(torch.Tensor(obs).to(device))
+        actions, _, _ = agent.get_action(torch.Tensor(obs).to(device))
         next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
         if "final_info" in infos:
             for info in infos["final_info"]:

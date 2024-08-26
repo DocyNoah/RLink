@@ -40,3 +40,10 @@ MuJoCo
 ```bash
 pip install "gymnasium[mujoco]"
 ```
+
+Record video
+
+```bash
+pip install moviepy==1.0.3
+brew install ffmpeg
+```

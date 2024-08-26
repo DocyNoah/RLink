@@ -45,7 +45,9 @@ class Args:
     save_model: bool = False
     """whether to save model into the `runs/{run_name}` folder"""
     print_interval: int = 5
-    """the logging interval for printing to the console"""
+    """the interval (iterations) for printing to the console"""
+    record_interval: int = 100
+    """the interval (episodes) to record videos"""
 
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
@@ -94,11 +96,23 @@ class Args:
     """the device (cpu, cuda, mps) used in this experiment"""
 
 
-def make_env(env_id: str, idx: int, capture_video: bool, run_name: str, gamma: float) -> callable:
+def make_env(
+    env_id: str,
+    idx: int,
+    capture_video: bool,
+    video_path: str,
+    record_interval: int,
+    gamma: float,
+) -> callable:
     def thunk() -> gym.Env:
         if capture_video and idx == 0:
             env = gym.make(env_id, render_mode="rgb_array")
-            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+            env = gym.wrappers.RecordVideo(
+                env,
+                video_path,
+                episode_trigger=lambda x: x % record_interval == 0,
+                disable_logger=True,
+            )
         else:
             env = gym.make(env_id)
         env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
@@ -189,9 +203,17 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     th.backends.cudnn.deterministic = args.torch_deterministic
 
     # Make envs
+    output_dir = f"runs/{args.project_name}/{args.exp_name}/{run_name}"
     envs = gym.vector.SyncVectorEnv(
         [
-            make_env(args.env_id, i, args.capture_video, run_name, args.gamma)
+            make_env(
+                env_id=args.env_id,
+                idx=i,
+                capture_video=args.capture_video,
+                video_path=f"{output_dir}/videos",
+                record_interval=args.record_interval,
+                gamma=args.gamma,
+            )
             for i in range(args.num_envs)
         ]
     )
@@ -346,7 +368,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             )
 
     if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
+        model_path = f"{output_dir}/latest_model.pt"
         th.save(agent.state_dict(), model_path)
         print(f"model saved to {model_path}")
         from rlink.evaluate import ppo_evaluate
@@ -356,8 +378,12 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             make_env,
             args.env_id,
             eval_episodes=10,
-            run_name=f"{run_name}-eval",
+            video_path=f"{output_dir}/eval",
             Model=Agent,
+            model_kwargs={
+                "in_features": np.array(envs.single_observation_space.shape).prod(),
+                "out_features": np.array(envs.single_action_space.shape).prod(),
+            },
             device=device,
             gamma=args.gamma,
         )
