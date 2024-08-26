@@ -1,4 +1,3 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
 import collections
 import os
 import random
@@ -192,7 +191,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             config=vars(args),
             monitor_gym=True,
             save_code=True,
-            dir="runs_wandb",
+            dir="runs",
         )
     writer = common.create_summary_writer(args.project_name, args.exp_name, run_name, vars(args))
 
