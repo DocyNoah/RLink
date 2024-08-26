@@ -23,7 +23,7 @@ class TensorQueue:
         self._queue.append(tensor)
 
     def get_seq(self) -> th.Tensor:
-        return th.stack(list(self._queue))
+        return th.stack(list(self._queue))  # (seq_len, n_envs, *obs_shape)
 
     def __len__(self) -> int:
         return len(self._queue)
