@@ -395,9 +395,7 @@ def train_step(
             mb_advantage = b_advantage[mb_inds]
             mb_return = b_return[mb_inds]
 
-            _, new_log_prob, entropy = agent.get_action(
-                mb_obs, mb_action
-            )
+            _, new_log_prob, entropy = agent.get_action(mb_obs, mb_action)
             new_value = agent.get_value(mb_obs)
             log_ratio = new_log_prob - mb_log_prob  # (mb_size,) = (mb_size,) - (mb_size,)
             ratio = log_ratio.exp()
