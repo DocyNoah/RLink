@@ -300,8 +300,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
                         epi_l = info["episode"]["l"]
                         epi_l_queue.append(epi_l)
                         epi_r_queue.append(epi_r)
-                        writer.add_scalar("charts/episodic_return", epi_r, global_step)
-                        writer.add_scalar("charts/episodic_length", epi_l, global_step)
+                        writer.add_scalar("Charts/episodic_return", epi_r, global_step)
+                        writer.add_scalar("Charts/episodic_length", epi_l, global_step)
                     break
 
         # Compute value for the last step after the num_steps
@@ -343,16 +343,16 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         sps = int(global_step / (time.time() - start_time))
         etc = time_util.get_etc(args.total_timesteps, global_step, start_time, time.time())
         etc_str = time_util.time_to_str(etc)
-        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
-        writer.add_scalar("losses/value_loss", v_loss, global_step)
-        writer.add_scalar("losses/policy_loss", pg_loss, global_step)
-        writer.add_scalar("losses/entropy", entropy_loss, global_step)
-        writer.add_scalar("losses/old_approx_kl", old_approx_kl, global_step)
-        writer.add_scalar("losses/approx_kl", approx_kl, global_step)
-        writer.add_scalar("losses/clipfrac", clip_frac, global_step)
-        writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        writer.add_scalar("charts/sps", sps, global_step)
-        writer.add_scalar("charts/elapsed_time", time.time() - start_time, global_step)
+        writer.add_scalar("Charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar("Losses/value_loss", v_loss, global_step)
+        writer.add_scalar("Losses/policy_loss", pg_loss, global_step)
+        writer.add_scalar("Losses/entropy", entropy_loss, global_step)
+        writer.add_scalar("Losses/old_approx_kl", old_approx_kl, global_step)
+        writer.add_scalar("Losses/approx_kl", approx_kl, global_step)
+        writer.add_scalar("Losses/clipfrac", clip_frac, global_step)
+        writer.add_scalar("Losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("Charts/sps", sps, global_step)
+        writer.add_scalar("Charts/elapsed_time", time.time() - start_time, global_step)
         # Logging - console
         if iteration % args.print_interval == 0:
             print(
