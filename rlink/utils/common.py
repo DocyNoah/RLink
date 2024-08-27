@@ -30,6 +30,7 @@ def create_summary_writer(
             "\n".join([f"|{key}|{value}|" for key, value in args.items()]),
         ),
     )
+    print("TensorBoard log dir:", output_dir)
 
     # Save args to config.json
     with open(f"{output_dir}/config.json", "w", encoding="utf-8") as json_file:
