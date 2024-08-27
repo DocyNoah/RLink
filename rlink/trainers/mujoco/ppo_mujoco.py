@@ -244,6 +244,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
     # Initialize environment
     global_step = 0
+    global_episode = 0
     start_time = time.time()
     obs, _ = envs.reset(seed=args.seed)
     obs = th.tensor(obs, dtype=th.float32, device=device)
@@ -291,6 +292,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             # Update data for next step
             obs = next_obs
             done = next_done
+            global_episode += np.sum(terminations)
 
             # Logging a episode for one env at the same time
             if "final_info" in infos:
@@ -353,6 +355,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         writer.add_scalar("Losses/explained_variance", explained_var, global_step)
         writer.add_scalar("Charts/sps", sps, global_step)
         writer.add_scalar("Charts/elapsed_time", time.time() - start_time, global_step)
+        writer.add_scalar("Charts/global_episode", global_episode, global_step)
         # Logging - console
         if iteration % args.print_interval == 0:
             print(
