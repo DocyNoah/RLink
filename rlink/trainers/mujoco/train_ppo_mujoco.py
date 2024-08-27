@@ -285,7 +285,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
                     final_obs = th.tensor(final_obs, dtype=th.float32, device=device)
                     with th.no_grad():
                         final_value = agent.get_value(final_obs)  # (1, 1)
-                    reward += args.gamma * final_value.flatten()  # (num_envs,) += scalar * (1,)
+                    reward[idx] += args.gamma * final_value.squeeze()  # scalar
 
             # Add transition to buffer
             rollout_buffer.add(obs, action, reward, done, logprob, value)
