@@ -310,12 +310,15 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             # https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/common/on_policy_algorithm.py#L213
             for idx, trunction in enumerate(truncations):
                 if trunction:
-                    final_obs = infos["final_observation"][idx]
+                    final_obs = infos["final_observation"]  # (num_envs, *obs_shape)
+                    final_obs = final_obs[idx].reshape(1, -1)  # (1, *obs_shape)e)
                     final_obs = th.tensor(final_obs, dtype=th.float32, device=device)
                     obs_queue.override(idx, final_obs)
+                    obs_seq = obs_queue.get_seq()  # (seq_len, n_envs, *obs_shape)
+                    obs_seq = obs_seq[:, idx].unsqueeze(1)  # (seq_len, 1, *obs_shape)
                     with th.no_grad():
-                        final_value = agent.get_value(obs_queue.get_seq())
-                    reward += args.gamma * final_value.flatten()
+                        final_value = agent.get_value(obs_seq)  # (1, 1)
+                    reward[idx] += args.gamma * final_value.squeeze()  # scalar
 
             # Add transition to buffer
             rollout_buffer.add(obs, action, reward, done, logprob, value)
