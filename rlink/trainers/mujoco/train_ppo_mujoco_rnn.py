@@ -264,7 +264,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         gae_lambda=args.gae_lambda,
         gamma=args.gamma,
     )
-    obs_queue = th_util.TensorQueue(maxlen=args.seq_len)  # for context
+    seq_queue = th_util.SequenceQueue(seq_len=args.seq_len)  # for context
 
     # Logging variables
     epi_l_queue = collections.deque(maxlen=30)
@@ -276,8 +276,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     start_time = time.time()
     obs, _ = envs.reset(seed=args.seed)
     obs = th.tensor(obs, dtype=th.float32, device=device)
-    obs_queue.append(obs)
     done = th.zeros(args.num_envs, device=device)
+    seq_queue.append(obs, done)
 
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
@@ -292,7 +292,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
             # Get action
             with th.no_grad():
-                obs_seq = obs_queue.get_seq()
+                obs_seq = seq_queue.get_obs_seq()
                 action, logprob, _ = agent.get_action(obs_seq)
                 value = agent.get_value(obs_seq)
                 value = value.flatten()  # (num_envs, 1) -> (num_envs,)
@@ -313,7 +313,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
                     final_obs = infos["final_observation"]  # (num_envs, *obs_shape)
                     final_obs = final_obs[idx].reshape(1, -1)  # (1, *obs_shape)e)
                     final_obs = th.tensor(final_obs, dtype=th.float32, device=device)
-                    obs_seq = obs_queue.get_final_seq(idx, final_obs)  # (seq_len, 1, *obs_shape)
+                    obs_seq = seq_queue.get_single_seq(idx, final_obs)  # (seq_len, 1, *obs_shape)
                     with th.no_grad():
                         final_value = agent.get_value(obs_seq)  # (1, 1)
                     reward[idx] += args.gamma * final_value.squeeze()  # scalar
@@ -324,7 +324,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             # Update data for next step
             obs = next_obs
             done = next_done
-            obs_queue.append(obs)
+            seq_queue.append(obs, done)
             global_episode += np.sum(terminations)
 
             # Logging a episode for one env at the same time

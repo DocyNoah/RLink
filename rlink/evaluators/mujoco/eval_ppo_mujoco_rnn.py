@@ -33,13 +33,13 @@ def ppo_evaluate(
     agent.load_state_dict(th.load(model_path, map_location=device, weights_only=True))
     agent.eval()
 
-    obs_queue = th_util.TensorQueue(seq_len)
+    obs_queue = th_util.SequenceQueue(seq_len)
     obs, _ = envs.reset()
     obs = th.tensor(obs, dtype=th.float32, device=device)
     obs_queue.append(obs)
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
-        actions, _, _ = agent.get_action(obs_queue.get_seq())
+        actions, _, _ = agent.get_action(obs_queue.get_obs_seq())
         next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
         if "final_info" in infos:
             for info in infos["final_info"]:
