@@ -313,9 +313,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
                     final_obs = infos["final_observation"]  # (num_envs, *obs_shape)
                     final_obs = final_obs[idx].reshape(1, -1)  # (1, *obs_shape)e)
                     final_obs = th.tensor(final_obs, dtype=th.float32, device=device)
-                    obs_queue.override(idx, final_obs)
-                    obs_seq = obs_queue.get_seq()  # (seq_len, n_envs, *obs_shape)
-                    obs_seq = obs_seq[:, idx].unsqueeze(1)  # (seq_len, 1, *obs_shape)
+                    obs_seq = obs_queue.get_final_seq(idx, final_obs)  # (seq_len, 1, *obs_shape)
                     with th.no_grad():
                         final_value = agent.get_value(obs_seq)  # (1, 1)
                     reward[idx] += args.gamma * final_value.squeeze()  # scalar
