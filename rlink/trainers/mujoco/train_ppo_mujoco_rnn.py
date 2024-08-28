@@ -453,6 +453,7 @@ def train_step(
 
             # for context
             seq_offsets = np.arange(-args.seq_len + 1, 1).reshape(-1, 1)  # (seq_len, 1)
+            seq_offsets *= args.num_envs  # (seq_len, 1),  considering env dim
             _mb_inds = mb_inds.reshape(1, -1)  # (1, batch_size)
             seq_mb_inds = _mb_inds + seq_offsets  # (seq_len, batch_size)
             padding_mask = seq_mb_inds >= 0  # True: valid index, False: padding index
