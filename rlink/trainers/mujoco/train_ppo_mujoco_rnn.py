@@ -65,8 +65,8 @@ class Args:
     """the discount factor gamma"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation"""
-    num_minibatches: int = 32
-    """the number of mini-batches"""
+    minibatch_size: int = 64
+    """the mini-batch size"""
     update_epochs: int = 10
     """the K epochs to update the policy"""
     norm_adv: bool = True
@@ -89,12 +89,12 @@ class Args:
     # to be filled in runtime
     batch_size: int = 0
     """the batch size (computed in runtime)"""
-    minibatch_size: int = 0
-    """the mini-batch size (computed in runtime)"""
+    num_minibatches: int = 0
+    """the number of mini-batches (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
     device: str = ""
-    """the device (cpu, cuda, mps) used in this experiment"""
+    """the device (cpu, cuda, mps) used in this experiment (computed in runtime)"""
 
 
 def make_env(
@@ -196,7 +196,7 @@ class Agent(nn.Module):
 def train_ppo(args: Args, Agent: type[Agent]) -> None:
     # Set hyperparameters
     args.batch_size = int(args.num_envs * args.num_steps)
-    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    args.num_minibatches = int(args.batch_size // args.minibatch_size)
     args.num_iterations = args.total_timesteps // args.batch_size
     device = common.get_device(args.use_cuda, args.use_mps)
     args.device = str(device)
@@ -453,68 +453,68 @@ def train_step(
     b_return: th.Tensor,
     optimizer: optim.Optimizer,
 ) -> dict[str, float]:
-    b_inds = np.arange(args.batch_size)
+    b_inds = np.arange(args.batch_size)  # (batch_size, *obs_shape)
     clip_fracs = []
     for epoch in range(args.update_epochs):
         np.random.shuffle(b_inds)
         for start in range(0, args.batch_size, args.minibatch_size):
             end = start + args.minibatch_size
-            mb_inds = b_inds[start:end]
+            mb_inds = b_inds[start:end]  # (mb_size,)
 
             # for context
             seq_offsets = np.arange(-args.seq_len + 1, 1).reshape(-1, 1)  # (seq_len, 1)
             seq_offsets *= args.num_envs  # (seq_len, 1),  considering env dim
-            _mb_inds = mb_inds.reshape(1, -1)  # (1, batch_size)
-            seq_mb_inds = _mb_inds + seq_offsets  # (seq_len, batch_size)
+            _mb_inds = mb_inds.reshape(1, -1)  # (1, mb_size)
+            seq_mb_inds = _mb_inds + seq_offsets  # (seq_len, mb_size)
             padding_mask = seq_mb_inds >= 0  # True: valid index, False: padding index
             seq_mb_inds = seq_mb_inds.clip(min=0)  # clip negative index to 0
 
             # Sample mini-batch
-            mb_obs = b_obs[seq_mb_inds]  # (seq_len, batch_size, obs_shape)
+            mb_obs = b_obs[seq_mb_inds]  # (seq_len, mb_size, obs_shape)
             mb_obs[~padding_mask] = 0
-            mb_action = b_action[mb_inds]  # (batch_size, action_shape)
-            mb_log_prob = b_log_prob[mb_inds]  # (batch_size,)
-            mb_value = b_value[mb_inds]  # (batch_size,)
-            mb_advantage = b_advantage[mb_inds]  # (batch_size,)
-            mb_return = b_return[mb_inds]  # (batch_size,)
+            mb_action = b_action[mb_inds]  # (mb_size, action_shape)
+            mb_log_prob = b_log_prob[mb_inds]  # (mb_size,)
+            mb_value = b_value[mb_inds]  # (mb_size,)
+            mb_advantage = b_advantage[mb_inds]  # (mb_size,)
+            mb_return = b_return[mb_inds]  # (mb_size,)
 
             _, new_log_prob, entropy = agent.get_action(mb_obs, mb_action)
             new_value = agent.get_value(mb_obs)
             log_ratio = new_log_prob - mb_log_prob  # (mb_size,) = (mb_size,) - (mb_size,)
-            ratio = log_ratio.exp()
+            ratio = log_ratio.exp()  # (mb_size,)
 
             with th.no_grad():
                 # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                old_approx_kl = (-log_ratio).mean()
-                approx_kl = ((ratio - 1) - log_ratio).mean()
-                clip_fracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                old_approx_kl = (-log_ratio).mean()  # (mb_size,) -> scalar
+                approx_kl = ((ratio - 1) - log_ratio).mean()  # (mb_size,) -> scalar
+                clip_fracs.append(((ratio - 1.0).abs() > args.clip_coef).float().mean().item())
 
             if args.norm_adv:
                 mb_advantage = (mb_advantage - mb_advantage.mean()) / (mb_advantage.std() + 1e-8)
 
             # Policy loss
-            clipped_ratio = ratio.clamp(1 - args.clip_coef, 1 + args.clip_coef)
-            pg_loss1 = -mb_advantage * ratio
-            pg_loss2 = -mb_advantage * clipped_ratio
-            pg_loss = th.max(pg_loss1, pg_loss2).mean()
+            clipped_ratio = ratio.clamp(1 - args.clip_coef, 1 + args.clip_coef)  # (mb_size,)
+            pg_loss1 = -mb_advantage * ratio  # (mb_size,)
+            pg_loss2 = -mb_advantage * clipped_ratio  # (mb_size,)
+            pg_loss = th.max(pg_loss1, pg_loss2).mean()  # (mb_size,)
 
             # Value loss
-            new_value = new_value.view(-1)
+            new_value = new_value.flatten()  # (mb_size, 1) -> (mb_size,)
             if args.clip_vloss:
-                v_loss_unclipped = (new_value - mb_return) ** 2
-                v_clipped = mb_value + th.clamp(
+                v_loss_unclipped = (new_value - mb_return) ** 2  # (mb_size,)
+                v_clipped = mb_value + th.clamp(  # (mb_size,)
                     new_value - mb_value,
                     -args.clip_coef,
                     args.clip_coef,
                 )
-                v_loss_clipped = (v_clipped - mb_return) ** 2
-                v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)
-                v_loss = 0.5 * v_loss_max.mean()
+                v_loss_clipped = (v_clipped - mb_return) ** 2  # (mb_size,)
+                v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)  # (mb_size,)
+                v_loss = 0.5 * v_loss_max.mean()  # scalar
             else:
-                v_loss = 0.5 * ((new_value - mb_return) ** 2).mean()
+                v_loss = 0.5 * ((new_value - mb_return) ** 2).mean()  # scalar
 
-            entropy_loss = entropy.mean()
-            loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+            entropy_loss = entropy.mean()  # scalar
+            loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef  # scalar
 
             optimizer.zero_grad()
             loss.backward()
@@ -524,7 +524,8 @@ def train_step(
         if args.target_kl is not None and approx_kl > args.target_kl:
             break
 
-    y_pred, y_true = b_value.cpu().numpy(), b_return.cpu().numpy()
+    y_pred = b_value.cpu().numpy()
+    y_true = b_return.cpu().numpy()
     var_y = np.var(y_true)
     explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
