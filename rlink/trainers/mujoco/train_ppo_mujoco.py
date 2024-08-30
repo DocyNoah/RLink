@@ -251,6 +251,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     done = th.zeros(args.num_envs, device=device)
 
     for iteration in range(1, args.num_iterations + 1):
+        collect_start_time = time.time()
+
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
@@ -307,6 +309,9 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
                         writer.add_scalar("Charts/episodic_length", epi_l, global_step)
                     break
 
+        collect_time = time.time() - collect_start_time
+        train_start_time = time.time()
+
         # Compute value for the last step after the num_steps
         # bootstrap value if not done
         with th.no_grad():
@@ -334,6 +339,9 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             b_return,
             optimizer,
         )
+
+        train_time = time.time() - train_start_time
+
         v_loss = train_data["v_loss"]
         pg_loss = train_data["pg_loss"]
         entropy_loss = train_data["entropy_loss"]
@@ -357,6 +365,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         writer.add_scalar("Charts/sps", sps, global_step)
         writer.add_scalar("Charts/elapsed_time", time.time() - start_time, global_step)
         writer.add_scalar("Charts/global_episode", global_episode, global_step)
+        writer.add_scalar("Charts/collection_time", collect_time, global_step)
+        writer.add_scalar("Charts/train_time", train_time, global_step)
         # Logging - console
         if iteration % args.print_interval == 0:
             print(
