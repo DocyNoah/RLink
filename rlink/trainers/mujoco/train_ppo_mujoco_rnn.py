@@ -327,7 +327,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             obs = next_obs
             done = next_done
             seq_queue.append(obs, done)
-            global_episode += np.sum(terminations)
+            global_episode += int(th.sum(done).item())
 
             # Logging a episode for one env at the same time
             if "final_info" in infos:

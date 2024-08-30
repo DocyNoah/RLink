@@ -295,7 +295,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             # Update data for next step
             obs = next_obs
             done = next_done
-            global_episode += np.sum(terminations)
+            global_episode += int(th.sum(done).item())
 
             # Logging a episode for one env at the same time
             if "final_info" in infos:
