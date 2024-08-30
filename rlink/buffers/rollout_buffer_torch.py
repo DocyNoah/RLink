@@ -125,10 +125,10 @@ class RolloutBufferTorch:
     def get(self) -> dict[str, th.Tensor]:
         # flatten the batch
         return {
-            "b_obs": self._observations.reshape((-1, *self._obs_shape)),
-            "b_action": self._actions.reshape((-1, self._action_dim)),
-            "b_log_prob": self._log_probs.reshape(-1),
-            "b_value": self._values.reshape(-1),
-            "b_advantage": self._advantages.reshape(-1),
-            "b_return": self._returns.reshape(-1),
+            "b_obs": self._observations.view((-1, *self._obs_shape)),
+            "b_action": self._actions.view((-1, self._action_dim)),
+            "b_log_prob": self._log_probs.view(-1),
+            "b_value": self._values.view(-1),
+            "b_advantage": self._advantages.view(-1),
+            "b_return": self._returns.view(-1),
         }
