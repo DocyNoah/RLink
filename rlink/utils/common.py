@@ -16,7 +16,8 @@ def create_summary_writer(
     args: dict,
 ) -> SummaryWriter:
     # Convert args
-    args = vars(args) if not hasattr(args, "items") else args
+    args = vars(args) if not hasattr(args, "items") else args.copy()
+    args["device_name"] = platform.node()
 
     # Create a directory
     output_dir = f"runs/{project_name}/{exp_name}/{run_name}"
