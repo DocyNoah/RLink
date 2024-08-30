@@ -176,7 +176,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
     # Setup logging
     if args.run_name is None:
-        run_name = f"{args.exp_name}--{time_util.get_now_str()}"
+        run_name = f"{args.exp_name}--s{args.seed}--{time_util.get_now_str()}"
     else:
         run_name = args.run_name
     if args.use_wandb:
