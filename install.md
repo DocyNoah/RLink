@@ -43,7 +43,16 @@ pip install "gymnasium[mujoco]"
 
 Record video
 
+- for Mac
+
 ```bash
 pip install moviepy==1.0.3
 brew install ffmpeg
+```
+
+- for Ubuntu
+
+```bash
+pip install moviepy==1.0.3
+sudo apt-get install ffmpeg
 ```
