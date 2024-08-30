@@ -101,7 +101,7 @@ class RolloutBufferTorch:
         if self._pos == self._buffer_size:
             self._full = True
 
-    def compute_returns_and_advantages(self, final_value: th.Tensor, final_done: bool) -> None:
+    def compute_returns_and_advantages(self, final_value: th.Tensor, final_done: th.Tensor) -> None:
         # Compute advantage
         last_gae_lam = 0
         for t in reversed(range(self._buffer_size)):

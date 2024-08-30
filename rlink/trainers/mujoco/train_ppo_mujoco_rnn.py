@@ -176,7 +176,7 @@ class Agent(nn.Module):
         self,
         x: th.Tensor,
         action: th.Tensor | None = None,
-    ) -> tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
         x, _ = self.actor_mean1(x)
         x, _ = self.actor_mean2(x)
         x = x[-1]  # get last hidden state

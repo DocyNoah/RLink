@@ -152,7 +152,7 @@ class Agent(nn.Module):
         self,
         x: th.Tensor,
         action: th.Tensor | None = None,
-    ) -> tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
         action_mean = self.actor_mean(x)  # (num_envs, out_features)
         action_logstd = self.actor_logstd.expand_as(action_mean)  # (num_envs, out_features)
         action_std = th.exp(action_logstd)  # (num_envs, out_features)
