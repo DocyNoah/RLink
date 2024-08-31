@@ -3,8 +3,8 @@ from gymnasium.core import ObsType
 
 
 class POMDPWrapper(gym.ObservationWrapper):
-    def __init__(self, env_id: str, visible_obs_dim: list[int]):
-        env = gym.make(env_id)
+    def __init__(self, env_id: str, visible_obs_dim: list[int], **kwargs):
+        env = gym.make(env_id, **kwargs)
         super().__init__(env=env)
         assert isinstance(visible_obs_dim, list)
 
