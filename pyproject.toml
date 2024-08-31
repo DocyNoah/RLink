@@ -39,6 +39,7 @@ ignore = [
     "ANN002",  # missing-type-args
     "ANN003",  # missing-type-kwargs
     "ANN204",  # missing-return-type-special-method
+    "ANN401",  # any-type
 ]
 
 [tool.ruff.lint.flake8-annotations]
