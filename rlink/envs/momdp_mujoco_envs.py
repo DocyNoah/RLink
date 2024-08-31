@@ -8,9 +8,10 @@ class POMDPMujocoEnv:
     Use this class to register POMDP environments in this file.
 
     Example:
-    from rlink.envs.momdp_mujoco_envs import POMDPMujocoEnv
-    gym.register_envs(POMDPMujocoEnv)
+        from rlink.envs.momdp_mujoco_envs import POMDPMujocoEnv
+        gym.register_envs(POMDPMujocoEnv)
     """
+
     pass
 
 
