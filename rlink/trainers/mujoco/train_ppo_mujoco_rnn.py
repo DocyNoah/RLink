@@ -209,6 +209,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     if args.use_wandb:
         import wandb
 
+        print("wandb started")
         wandb.init(
             project=args.project_name,
             entity=args.wandb_entity,
@@ -440,6 +441,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     writer.close()
     if args.use_wandb:
         wandb.finish()
+        print("wandb finished")
 
 
 def train_step(
