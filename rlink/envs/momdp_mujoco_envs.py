@@ -58,18 +58,18 @@ gym.register(id="HopperV-v4", entry_point=Hopper_V_factory)
 # Walker2d-v4
 # https://gymnasium.farama.org/environments/mujoco/walker2d/#observation-space
 def Walker2D_P_factory(**kwargs) -> gym.Env:
-    env_id = "Walker2D-v4"
+    env_id = "Walker2d-v4"
     visible_obs_dim = [0, 1, 2, 3, 4, 5, 6, 7]
     env = POMDPWrapper(env_id, visible_obs_dim, **kwargs)
     return env
 
 
 def Walker2D_V_factory(**kwargs) -> gym.Env:
-    env_id = "Walker2D-v4"
+    env_id = "Walker2d-v4"
     visible_obs_dim = [8, 9, 10, 11, 12, 13, 14, 15, 16]
     env = POMDPWrapper(env_id, visible_obs_dim, **kwargs)
     return env
 
 
-gym.register(id="Walker2DP-v4", entry_point=Walker2D_P_factory)
-gym.register(id="Walker2DV-v4", entry_point=Walker2D_V_factory)
+gym.register(id="Walker2dP-v4", entry_point=Walker2D_P_factory)
+gym.register(id="Walker2dV-v4", entry_point=Walker2D_V_factory)
