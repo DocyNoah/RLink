@@ -43,6 +43,8 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
     save_model: bool = False
     """whether to save model into the `runs/{run_name}` folder"""
+    capture_video_eval: bool = False
+    """whether to capture videos of the agent performances during evaluation (check out `eval` folder)"""  # noqa: E501
     print_interval: int = 5
     """the interval (iterations) for printing to the console"""
     record_interval: int = 100
@@ -399,6 +401,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
                 "out_features": np.array(envs.single_action_space.shape).prod(),
             },
             device=device,
+            capture_video=args.capture_video_eval,
             gamma=args.gamma,
         )
         for idx, episodic_return in enumerate(episodic_returns):
