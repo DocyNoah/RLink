@@ -89,8 +89,6 @@ class Args:
     # to be filled in runtime
     batch_size: int = 0
     """the batch size (computed in runtime)"""
-    num_minibatches: int = 0
-    """the number of mini-batches (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
     output_dir: str = ""
@@ -173,7 +171,6 @@ class Agent(nn.Module):
 def train_ppo(args: Args, Agent: type[Agent]) -> None:
     # Set hyperparameters
     args.batch_size = int(args.num_envs * args.num_steps)
-    args.num_minibatches = int(args.batch_size // args.minibatch_size)
     args.num_iterations = args.total_timesteps // args.batch_size
     device = common.get_device(args.use_cuda, args.use_mps)
     args.device = str(device)
