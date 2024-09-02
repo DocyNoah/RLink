@@ -10,9 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 def create_summary_writer(
-    project_name: str,
-    exp_name: str,
-    run_name: str,
+    output_dir: str,
     args: dict,
 ) -> SummaryWriter:
     # Convert args
@@ -20,7 +18,6 @@ def create_summary_writer(
     args["device_name"] = platform.node()
 
     # Create a directory
-    output_dir = f"runs/{project_name}/{exp_name}/{run_name}"
     os.makedirs(output_dir, exist_ok=True)
 
     # Create a SummaryWriter

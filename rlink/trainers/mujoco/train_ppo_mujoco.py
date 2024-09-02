@@ -93,6 +93,8 @@ class Args:
     """the number of mini-batches (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
+    output_dir: str = ""
+    """the output directory for logging (computed in runtime)"""
     device: str = ""
     """the device (cpu, cuda, mps) used in this experiment (computed in runtime)"""
 
@@ -176,27 +178,29 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     device = common.get_device(args.use_cuda, args.use_mps)
     args.device = str(device)
 
-    # Setup logging
+    # Set output directory
     if args.run_name is None:
-        run_name = f"{args.exp_name}--s{args.seed}--{time_util.get_now_str()}"
-    else:
-        run_name = args.run_name
+        args.run_name = f"{args.exp_name}--s{args.seed}--{time_util.get_now_str()}"
+    args.output_dir = f"runs/{args.project_name}/{args.exp_name}/{args.run_name}"
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Setup logging
     if args.use_wandb:
         import wandb
 
-        print("wandb started")
+        os.makedirs("runs", exist_ok=True)
         wandb.init(
             project=args.project_name,
             entity=args.wandb_entity,
             group=args.exp_name,
-            name=run_name,
+            name=args.run_name,
             sync_tensorboard=True,
             config=vars(args),
             monitor_gym=True,
             save_code=True,
             dir="runs",
         )
-    writer = common.create_summary_writer(args.project_name, args.exp_name, run_name, vars(args))
+    writer = common.create_summary_writer(args.output_dir, vars(args))
 
     # Seeding
     random.seed(args.seed)
@@ -205,14 +209,13 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     th.backends.cudnn.deterministic = args.torch_deterministic
 
     # Make envs
-    output_dir = f"runs/{args.project_name}/{args.exp_name}/{run_name}"
     envs = gym.vector.SyncVectorEnv(
         [
             make_env(
                 env_id=args.env_id,
                 idx=i,
                 capture_video=args.capture_video,
-                video_path=f"{output_dir}/videos",
+                video_path=f"{args.output_dir}/videos",
                 record_interval=args.record_interval,
                 gamma=args.gamma,
             )
@@ -384,7 +387,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             )
 
     if args.save_model:
-        model_path = f"{output_dir}/latest_model.pt"
+        model_path = f"{args.output_dir}/latest_model.pt"
         th.save(agent.state_dict(), model_path)
         print(f"model saved to {model_path}")
         from rlink.evaluators.mujoco.eval_ppo_mujoco import ppo_evaluate
@@ -394,7 +397,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             make_env,
             args.env_id,
             eval_episodes=10,
-            video_path=f"{output_dir}/eval",
+            video_path=f"{args.output_dir}/eval",
             Model=Agent,
             model_kwargs={
                 "in_features": np.array(envs.single_observation_space.shape).prod(),
