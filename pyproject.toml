@@ -31,7 +31,7 @@ select = [
     "SIM",  # flake8-simplify
     "TCH",  # flake8-tidy-imports
     # "ARG",  # flake8-unused-arguments
-    "FIX",  # flake8-fixme
+    # "FIX",  # flake8-fixme
     "PD",  # flake8-pandas
     "RUF",  # ruff-specific-rules
 ]
