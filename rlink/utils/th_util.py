@@ -25,13 +25,13 @@ class SequenceQueue:
 
     def append(self, obs: th.Tensor, done: th.Tensor) -> None:
         # obs: (n_envs, *obs_shape)
-        # done: (n_envs,)
+        # done: (n_envs, 1)
 
         # If any env is done, mask out the obs of the envs that are done
         if len(self._obs_queue) > 0 and any(done):
             obs_seq = self.get_obs_seq()
             done_inds = th.where(done)[0]
-            obs_seq[:, done_inds] = 0
+            obs_seq[:, done_inds] = 0  # TODO: Check if this is correct
 
             if len(obs_seq) == self._obs_queue.maxlen:
                 self._obs_queue = collections.deque(obs_seq, maxlen=self._obs_queue.maxlen)

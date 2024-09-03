@@ -48,27 +48,27 @@ class RolloutBufferTorch:
             device=self._device,
         )
         self._log_probs = th.zeros(
-            size=(self._buffer_size, self._n_envs),
+            size=(self._buffer_size, self._n_envs, 1),
             dtype=th.float32,
             device=self._device,
         )
         self._rewards = th.zeros(
-            size=(self._buffer_size, self._n_envs),
+            size=(self._buffer_size, self._n_envs, 1),
             dtype=th.float32,
             device=self._device,
         )
         self._dones = th.zeros(
-            size=(self._buffer_size, self._n_envs),
+            size=(self._buffer_size, self._n_envs, 1),
             dtype=th.float32,
             device=self._device,
         )
         self._values = th.zeros(
-            size=(self._buffer_size, self._n_envs),
+            size=(self._buffer_size, self._n_envs, 1),
             dtype=th.float32,
             device=self._device,
         )
         self._advantages = th.zeros(
-            size=(self._buffer_size, self._n_envs),
+            size=(self._buffer_size, self._n_envs, 1),
             dtype=th.float32,
             device=self._device,
         )
@@ -102,6 +102,9 @@ class RolloutBufferTorch:
             self._full = True
 
     def compute_returns_and_advantages(self, final_value: th.Tensor, final_done: th.Tensor) -> None:
+        # final_value: (n_envs, 1)
+        # final_done: (n_envs, 1)
+
         # Compute advantage
         last_gae_lam = 0
         for t in reversed(range(self._buffer_size)):
@@ -117,18 +120,30 @@ class RolloutBufferTorch:
             target_values = self._rewards[t] + self._gamma * next_value * next_non_terminal
             delta = target_values - self._values[t]
             last_gae_lam = delta + self._gamma * self._gae_lambda * next_non_terminal * last_gae_lam
+            # last_gae_lam: (n_envs, 1)
             self._advantages[t] = last_gae_lam
 
         # Compute returns
-        self._returns = self._advantages + self._values
+        self._returns = self._advantages + self._values  # (buffer_size, n_envs, 1)
 
-    def get(self) -> dict[str, th.Tensor]:
+    def get(self, only_return: bool = True) -> dict[str, th.Tensor]:
         # flatten the batch
-        return {
-            "b_obs": self._observations.view((-1, *self._obs_shape)),
-            "b_action": self._actions.view((-1, self._action_dim)),
-            "b_log_prob": self._log_probs.view(-1),
-            "b_value": self._values.view(-1),
-            "b_advantage": self._advantages.view(-1),
-            "b_return": self._returns.view(-1),
-        }
+        if only_return:
+            return {
+                "b_obs": self._observations.view((-1, *self._obs_shape)),
+                "b_action": self._actions.view((-1, self._action_dim)),
+                "b_log_prob": self._log_probs.view(-1, 1),
+                "b_value": self._values.view(-1, 1),
+                "b_advantage": self._advantages.view(-1, 1),
+                "b_return": self._returns.view(-1, 1),
+            }
+        else:
+            return {
+                "b_obs": self._observations.view((-1, *self._obs_shape)),
+                "b_action": self._actions.view((-1, self._action_dim)),
+                "b_log_prob": self._log_probs.view(-1, 1),
+                "b_value": self._values.view(-1, 1),
+                "b_advantage": self._advantages.view(-1, 1),
+                "b_return": self._returns.view(-1, 1),
+                "b_reward": self._rewards.view(-1, 1),
+            }

@@ -41,10 +41,10 @@ class Args:
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""
-    capture_video_eval: bool = False
-    """whether to capture videos of the agent performances during evaluation (check out `eval` folder)"""  # noqa: E501
     save_model: bool = False
     """whether to save model into the `runs/{run_name}` folder"""
+    capture_video_eval: bool = False
+    """whether to capture videos of the agent performances during evaluation (check out `eval` folder)"""  # noqa: E501
     print_interval: int = 5
     """the interval (iterations) for printing to the console"""
     record_interval: int = 100
@@ -190,9 +190,10 @@ class Agent(nn.Module):
             action = probs.sample()
         # action: (num_envs, out_features)
         # probs.log_prob(action): (num_envs, out_features)
-        # probs.log_prob(action).sum(1): (num_envs,)
+        # probs.log_prob(action).sum(1, keepdim=True): (num_envs, 1)
         # probs.entropy(): (num_envs, out_features)
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
+        # probs.entropy().sum(1): (num_envs,)
+        return action, probs.log_prob(action).sum(1, keepdim=True), probs.entropy().sum(1)
 
 
 def train_ppo(args: Args, Agent: type[Agent]) -> None:
@@ -278,8 +279,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     global_episode = 0
     start_time = time.time()
     obs, _ = envs.reset(seed=args.seed)
-    obs = th.tensor(obs, dtype=th.float32, device=device)
-    done = th.zeros(args.num_envs, device=device)
+    obs = th.tensor(obs, dtype=th.float32, device=device)  # (num_envs, *obs_shape)
+    done = th.zeros((args.num_envs, 1), device=device)  # (num_envs, 1)
     seq_queue.append(obs, done)
 
     for iteration in range(1, args.num_iterations + 1):
@@ -299,8 +300,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             with th.no_grad():
                 obs_seq = seq_queue.get_obs_seq()
                 action, logprob, _ = agent.get_action(obs_seq)
-                value = agent.get_value(obs_seq)
-                value = value.flatten()  # (num_envs, 1) -> (num_envs,)
+                value = agent.get_value(obs_seq)  # (num_envs, 1)
 
             # env.step
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
@@ -308,15 +308,18 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             # Postprocess data
             next_obs = th.tensor(next_obs, dtype=th.float32, device=device)
             next_done = np.logical_or(terminations, truncations)
-            next_done = th.tensor(next_done, dtype=th.float32, device=device)
-            reward = th.tensor(reward, dtype=th.float32, device=device).flatten()
+            next_done = th.tensor(next_done, dtype=th.float32, device=device).unsqueeze(1)
+            reward = th.tensor(reward, dtype=th.float32, device=device).unsqueeze(1)
+            # next_obs: (num_envs, *obs_shape)
+            # next_done: (num_envs, 1)
+            # reward: (num_envs, 1)
 
             # bootstrap value if truncated
             # https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/common/on_policy_algorithm.py#L213
             for idx, trunction in enumerate(truncations):
                 if trunction:
                     final_obs = infos["final_observation"]  # (num_envs, *obs_shape)
-                    final_obs = final_obs[idx].reshape(1, -1)  # (1, *obs_shape)e)
+                    final_obs = final_obs[idx].reshape(1, -1)  # (1, *obs_shape)
                     final_obs = th.tensor(final_obs, dtype=th.float32, device=device)
                     obs_seq = seq_queue.get_single_seq(idx, final_obs)  # (seq_len, 1, *obs_shape)
                     with th.no_grad():
@@ -350,7 +353,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         # Compute value for the last step after the num_steps
         # bootstrap value if not done
         with th.no_grad():
-            next_value = agent.get_value(next_obs).flatten()  # (num_envs, 1) -> (num_envs,)
+            next_value = agent.get_value(next_obs)  # (num_envs, 1)
             rollout_buffer.compute_returns_and_advantages(next_value, next_done)
 
         # Get rollout data from buffer
@@ -475,50 +478,51 @@ def train_step(
             seq_mb_inds = seq_mb_inds.clip(min=0)  # clip negative index to 0
 
             # Sample mini-batch
-            mb_obs = b_obs[seq_mb_inds]  # (seq_len, mb_size, obs_shape)
+            mb_obs = b_obs[seq_mb_inds]  # (seq_len, mb_size, *obs_shape)
             mb_obs[~padding_mask] = 0
-            mb_action = b_action[mb_inds]  # (mb_size, action_shape)
-            mb_log_prob = b_log_prob[mb_inds]  # (mb_size,)
-            mb_value = b_value[mb_inds]  # (mb_size,)
-            mb_advantage = b_advantage[mb_inds]  # (mb_size,)
-            mb_return = b_return[mb_inds]  # (mb_size,)
+            mb_action = b_action[mb_inds]  # (mb_size, *action_shape)
+            mb_log_prob = b_log_prob[mb_inds]  # (mb_size, 1)
+            mb_value = b_value[mb_inds]  # (mb_size, 1)
+            mb_advantage = b_advantage[mb_inds]  # (mb_size, 1)
+            mb_return = b_return[mb_inds]  # (mb_size, 1)
 
             _, new_log_prob, entropy = agent.get_action(mb_obs, mb_action)
-            new_value = agent.get_value(mb_obs)
-            log_ratio = new_log_prob - mb_log_prob  # (mb_size,) = (mb_size,) - (mb_size,)
-            ratio = log_ratio.exp()  # (mb_size,)
+            # new_log_prob: (mb_size, 1)
+            # entropy: (mb_size,)
+            new_value = agent.get_value(mb_obs)  # (mb_size, 1)
+            log_ratio = new_log_prob - mb_log_prob  # (mb_size, 1)
+            ratio = log_ratio.exp()  # (mb_size, 1)
 
             with th.no_grad():
                 # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                old_approx_kl = (-log_ratio).mean()  # (mb_size,) -> scalar
-                approx_kl = ((ratio - 1) - log_ratio).mean()  # (mb_size,) -> scalar
+                old_approx_kl = (-log_ratio).mean()  # (mb_size, 1) -> scalar
+                approx_kl = ((ratio - 1) - log_ratio).mean()  # (mb_size, 1) -> scalar
                 clip_fracs.append(((ratio - 1.0).abs() > args.clip_coef).float().mean().item())
 
             if args.norm_adv:
                 mb_advantage = (mb_advantage - mb_advantage.mean()) / (mb_advantage.std() + 1e-8)
 
             # Policy loss
-            clipped_ratio = ratio.clamp(1 - args.clip_coef, 1 + args.clip_coef)  # (mb_size,)
-            pg_loss1 = -mb_advantage * ratio  # (mb_size,)
-            pg_loss2 = -mb_advantage * clipped_ratio  # (mb_size,)
-            pg_loss = th.max(pg_loss1, pg_loss2).mean()  # (mb_size,)
+            clipped_ratio = ratio.clamp(1 - args.clip_coef, 1 + args.clip_coef)  # (mb_size, 1)
+            pg_loss1 = -mb_advantage * ratio  # (mb_size, 1)
+            pg_loss2 = -mb_advantage * clipped_ratio  # (mb_size, 1)
+            pg_loss = th.max(pg_loss1, pg_loss2).mean()  # (mb_size, 1) -> scalar
 
             # Value loss
-            new_value = new_value.flatten()  # (mb_size, 1) -> (mb_size,)
             if args.clip_vloss:
-                v_loss_unclipped = (new_value - mb_return) ** 2  # (mb_size,)
-                v_clipped = mb_value + th.clamp(  # (mb_size,)
+                v_loss_unclipped = (new_value - mb_return) ** 2  # (mb_size, 1)
+                v_clipped = mb_value + th.clamp(  # (mb_size, 1)
                     new_value - mb_value,
                     -args.clip_coef,
                     args.clip_coef,
                 )
-                v_loss_clipped = (v_clipped - mb_return) ** 2  # (mb_size,)
-                v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)  # (mb_size,)
+                v_loss_clipped = (v_clipped - mb_return) ** 2  # (mb_size, 1)
+                v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)  # (mb_size, 1)
                 v_loss = 0.5 * v_loss_max.mean()  # scalar
             else:
-                v_loss = 0.5 * ((new_value - mb_return) ** 2).mean()  # scalar
+                v_loss = 0.5 * ((new_value - mb_return) ** 2).mean()  # (mb_size, 1) -> scalar
 
-            entropy_loss = entropy.mean()  # scalar
+            entropy_loss = entropy.mean()  # (mb_size, 1) -> scalar
             loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef  # scalar
 
             optimizer.zero_grad()
