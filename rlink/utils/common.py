@@ -69,6 +69,46 @@ def get_device(use_cuda: bool, use_mps: bool) -> th.device:
     return th.device("cpu")
 
 
+def get_git_commit_info() -> str:
+    import subprocess
+
+    try:
+        commit_info = (
+            subprocess.check_output(["git", "log", "-3", "--pretty=format:%ci%n%s%n%an%n%h%n"])
+            .strip()
+            .decode("utf-8")
+        )
+        return commit_info
+    except subprocess.CalledProcessError:
+        return "No git repository found."
+
+
+def save_git_commit_info(output_dir: str) -> None:
+    # git log -3 --pretty=format:%ci%n%s%n%an%n%h%n > git_commit_info.txt
+    commit_info = get_git_commit_info()
+    os.makedirs(output_dir, exist_ok=True)
+    with open(f"{output_dir}/git_commit_info.txt", "w", encoding="utf-8") as f:
+        f.write(commit_info)
+
+
+def get_git_diff_head() -> str:
+    import subprocess
+
+    try:
+        git_diff_head = subprocess.check_output(["git", "diff", "HEAD"]).strip().decode("utf-8")
+        return git_diff_head
+    except subprocess.CalledProcessError:
+        return "No git repository found."
+
+
+def save_git_diff_head(output_dir: str) -> None:
+    # git diff HEAD > git_diff_head.txt
+    git_diff_head = get_git_diff_head()
+    os.makedirs(output_dir, exist_ok=True)
+    with open(f"{output_dir}/git_diff_head.txt", "w", encoding="utf-8") as f:
+        f.write(git_diff_head)
+
+
 # from https://github.com/pytorch/pytorch/blob/main/torch/testing/_internal/common_utils.py#L1506
 # numpy dtypes like np.float64 are not instances, but rather classes. This leads to rather absurd
 # cases like np.float64 != np.dtype("float64") but np.float64 == np.dtype("float64").type.
