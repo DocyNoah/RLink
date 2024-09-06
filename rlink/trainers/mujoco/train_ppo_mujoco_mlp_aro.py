@@ -498,7 +498,7 @@ def train_step(
     b_reward: th.Tensor,
     optimizer: optim.Optimizer,
 ) -> dict[str, float]:
-    b_inds = np.arange(args.batch_size)  # (batch_size, *obs_shape)
+    b_inds = np.arange(args.batch_size)  # batch_size = num_envs * num_steps
     clip_fracs = []
     for epoch in range(args.update_epochs):
         np.random.shuffle(b_inds)
