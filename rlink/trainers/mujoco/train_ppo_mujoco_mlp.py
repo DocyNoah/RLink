@@ -382,7 +382,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         model_path = f"{args.output_dir}/latest_model.pt"
         th.save(agent.state_dict(), model_path)
         print(f"model saved to {model_path}")
-        from rlink.evaluators.mujoco.eval_ppo_mujoco import ppo_evaluate
+        from rlink.evaluators.mujoco.eval_ppo_mujoco_mlp import ppo_evaluate
 
         episodic_returns = ppo_evaluate(
             model_path,
