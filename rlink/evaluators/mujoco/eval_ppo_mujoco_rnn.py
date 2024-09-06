@@ -1,5 +1,4 @@
 import gymnasium as gym
-import numpy as np
 import torch as th
 
 from rlink.utils import th_util
@@ -37,15 +36,12 @@ def ppo_evaluate(
     seq_queue = th_util.SequenceQueue(seq_len)
     obs, _ = envs.reset()
     obs = th.tensor(obs, dtype=th.float32, device=device)
-    done = th.zeros(1, device=device)
-    seq_queue.append(obs, done)
+    seq_queue.append(obs)
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
         actions, _, _ = agent.get_action(seq_queue.get_obs_seq())
-        next_obs, _, terminations, truncations, infos = envs.step(actions.cpu().numpy())
+        next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
         next_obs = th.tensor(next_obs, dtype=th.float32, device=device)
-        next_done = np.logical_or(terminations, truncations)
-        next_done = th.tensor(next_done, dtype=th.float32, device=device)
 
         if "final_info" in infos:
             for info in infos["final_info"]:
@@ -56,7 +52,6 @@ def ppo_evaluate(
                 )
                 episodic_returns += [info["episode"]["r"]]
         obs = next_obs
-        done = next_done
-        seq_queue.append(obs, done)
+        seq_queue.append(obs)
 
     return episodic_returns

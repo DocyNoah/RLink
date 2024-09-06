@@ -282,7 +282,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     obs, _ = envs.reset(seed=args.seed)
     obs = th.tensor(obs, dtype=th.float32, device=device)  # (num_envs, *obs_shape)
     done = th.zeros((args.num_envs, 1), device=device)  # (num_envs, 1)
-    seq_queue.append(obs, done)
+    seq_queue.append(obs)
 
     for iteration in range(1, args.num_iterations + 1):
         collect_start_time = time.time()
@@ -333,7 +333,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             # Update data for next step
             obs = next_obs
             done = next_done
-            seq_queue.append(obs, done)
+            seq_queue.append(obs)
             global_episode += int(th.sum(done).item())
 
             # Logging a episode for one env at the same time

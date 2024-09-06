@@ -18,6 +18,33 @@ def layer_init(
 class SequenceQueue:
     def __init__(self, seq_len: int):
         self._obs_queue = collections.deque(maxlen=seq_len)
+
+    def __len__(self) -> int:
+        return len(self._obs_queue)
+
+    def append(self, obs: th.Tensor) -> None:
+        # obs: (n_envs, *obs_shape)
+        self._obs_queue.append(obs)  # (seq_len, n_envs, *obs_shape)
+
+    def get_obs_seq(self) -> th.Tensor:
+        return th.stack(list(self._obs_queue))  # (seq_len, n_envs, *obs_shape)
+
+    def override(self, idx: int, tensor: th.Tensor) -> None:
+        self._obs_queue[-1][idx] = tensor
+
+    def get_single_seq(self, idx: int, tensor: th.Tensor | None = None) -> th.Tensor:
+        single_seq_list = [x[idx].unsqueeze(0) for x in self._obs_queue]  # (seq_len, 1, *obs_shape)
+        if tensor is not None:
+            single_seq_list.append(tensor)  # (seq_len + 1, 1, *obs_shape)
+            single_seq_list = single_seq_list[1:]  # (seq_len, 1, *obs_shape)
+        single_seq = th.stack(single_seq_list)  # (seq_len, 1, *obs_shape)
+
+        return single_seq
+
+
+class _SequenceQueueOld:
+    def __init__(self, seq_len: int):
+        self._obs_queue = collections.deque(maxlen=seq_len)
         self._done_queue = collections.deque(maxlen=seq_len)
 
     def __len__(self) -> int:
