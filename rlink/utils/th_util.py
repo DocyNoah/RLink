@@ -29,9 +29,9 @@ class SequenceQueue:
 
         # If any env is done, mask out the obs of the envs that are done
         if len(self._obs_queue) > 0 and any(done):
-            obs_seq = self.get_obs_seq()
-            done_inds = th.where(done)[0]
-            obs_seq[:, done_inds] = 0  # TODO: Check if this is correct
+            obs_seq = self.get_obs_seq()  # (seq_len, n_envs, *obs_shape)
+            done_env_inds = th.where(done)[0]
+            obs_seq[:, done_env_inds] = 0  # Mask out all sequences for the envs that are done
 
             if len(obs_seq) == self._obs_queue.maxlen:
                 self._obs_queue = collections.deque(obs_seq, maxlen=self._obs_queue.maxlen)
