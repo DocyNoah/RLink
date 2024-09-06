@@ -242,6 +242,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             dir="runs",
         )
     writer = common.create_summary_writer(args.output_dir, vars(args))
+    common.save_code_snapshot(args.output_dir)
 
     # Seeding
     random.seed(args.seed)

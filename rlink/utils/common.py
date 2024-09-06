@@ -69,36 +69,42 @@ def get_device(use_cuda: bool, use_mps: bool) -> th.device:
     return th.device("cpu")
 
 
-def get_git_commit_info() -> str:
+def get_git_log() -> str:
+    # git log -3 --pretty=format:%ci%n%s%n%an%n%h%n
     import subprocess
 
     try:
-        commit_info = (
+        git_log_str = (
             subprocess.check_output(["git", "log", "-3", "--pretty=format:%ci%n%s%n%an%n%h%n"])
             .strip()
             .decode("utf-8")
         )
-        return commit_info
+        return git_log_str
     except subprocess.CalledProcessError:
         return "No git repository found."
 
 
-def save_git_commit_info(output_dir: str) -> None:
-    # git log -3 --pretty=format:%ci%n%s%n%an%n%h%n > git_commit_info.txt
-    commit_info = get_git_commit_info()
+def save_git_log(output_dir: str) -> None:
+    # git log -3 --pretty=format:%ci%n%s%n%an%n%h%n > git_log.txt
+    git_log_str = get_git_log()
     os.makedirs(output_dir, exist_ok=True)
-    with open(f"{output_dir}/git_commit_info.txt", "w", encoding="utf-8") as f:
-        f.write(commit_info)
+    with open(f"{output_dir}/git_log.txt", "w", encoding="utf-8") as f:
+        f.write(git_log_str)
 
 
 def get_git_diff_head() -> str:
+    # git diff HEAD
     import subprocess
 
     try:
-        git_diff_head = subprocess.check_output(["git", "diff", "HEAD"]).strip().decode("utf-8")
-        return git_diff_head
+        git_diff_head_str = subprocess.check_output(["git", "diff", "HEAD"]).strip().decode("utf-8")
     except subprocess.CalledProcessError:
         return "No git repository found."
+
+    if not git_diff_head_str:
+        return "No changes since last commit."
+
+    return git_diff_head_str
 
 
 def save_git_diff_head(output_dir: str) -> None:
@@ -107,6 +113,22 @@ def save_git_diff_head(output_dir: str) -> None:
     os.makedirs(output_dir, exist_ok=True)
     with open(f"{output_dir}/git_diff_head.txt", "w", encoding="utf-8") as f:
         f.write(git_diff_head)
+
+
+def save_code_snapshot(output_dir: str) -> None:
+    os.makedirs(output_dir, exist_ok=True)
+    str_git_info = ""
+    str_git_info += "┌───────────────────────┐\n"
+    str_git_info += "│        Git Log        │\n"
+    str_git_info += "└───────────────────────┘\n"
+    str_git_info += get_git_log() + "\n\n"
+    str_git_info += "┌───────────────────────┐\n"
+    str_git_info += "│        Git Diff       │\n"
+    str_git_info += "└───────────────────────┘\n"
+    str_git_info += get_git_diff_head() + "\n"
+
+    with open(f"{output_dir}/code_snapshot.txt", "w", encoding="utf-8") as f:
+        f.write(str_git_info)
 
 
 # from https://github.com/pytorch/pytorch/blob/main/torch/testing/_internal/common_utils.py#L1506
