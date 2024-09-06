@@ -42,8 +42,8 @@ def ppo_evaluate(
 
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
-        actions, _, _ = agent.get_action(obs, prev_action, reward)
-        next_obs, reward, _, _, infos = envs.step(actions.cpu().numpy())
+        action, _, _ = agent.get_action(obs, prev_action, reward)
+        next_obs, reward, _, _, infos = envs.step(action.cpu().numpy())
         next_obs = th.tensor(next_obs, dtype=th.float32, device=device)  # (num_envs, *obs_shape)
         reward = th.tensor(reward, dtype=th.float32, device=device).unsqueeze(1)  # (num_envs, 1)
 
@@ -56,6 +56,6 @@ def ppo_evaluate(
                 )
                 episodic_returns += [info["episode"]["r"]]
         obs = next_obs
-        prev_action = actions
+        prev_action = action
 
     return episodic_returns

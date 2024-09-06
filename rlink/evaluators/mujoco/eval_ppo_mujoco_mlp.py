@@ -34,8 +34,8 @@ def ppo_evaluate(
     obs = th.tensor(obs, dtype=th.float32, device=device)
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
-        actions, _, _ = agent.get_action(obs)
-        next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
+        action, _, _ = agent.get_action(obs)
+        next_obs, _, _, _, infos = envs.step(action.cpu().numpy())
         next_obs = th.tensor(next_obs, dtype=th.float32, device=device)  # (num_envs, *obs_shape)
 
         if "final_info" in infos:
