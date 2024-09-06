@@ -75,7 +75,10 @@ def get_git_log() -> str:
 
     try:
         git_log_str = (
-            subprocess.check_output(["git", "log", "-3", "--pretty=format:%ci%n%s%n%an%n%h%n"])
+            subprocess.check_output(
+                ["git", "log", "-3", "--pretty=format:%ci%n%s%n%an%n%h%n"],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+            )
             .strip()
             .decode("utf-8")
         )
@@ -97,7 +100,14 @@ def get_git_diff_head() -> str:
     import subprocess
 
     try:
-        git_diff_head_str = subprocess.check_output(["git", "diff", "HEAD"]).strip().decode("utf-8")
+        git_diff_head_str = (
+            subprocess.check_output(
+                ["git", "diff", "HEAD"],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+            )
+            .strip()
+            .decode("utf-8")
+        )
     except subprocess.CalledProcessError:
         return "No git repository found."
 
