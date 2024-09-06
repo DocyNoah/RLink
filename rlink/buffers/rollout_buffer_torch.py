@@ -126,24 +126,23 @@ class RolloutBufferTorch:
         # Compute returns
         self._returns = self._advantages + self._values  # (buffer_size, n_envs, 1)
 
-    def get(self, only_return: bool = True) -> dict[str, th.Tensor]:
-        # flatten the batch
-        if only_return:
-            return {
-                "b_obs": self._observations.view((-1, *self._obs_shape)),
-                "b_action": self._actions.view((-1, self._action_dim)),
-                "b_log_prob": self._log_probs.view(-1, 1),
-                "b_value": self._values.view(-1, 1),
-                "b_advantage": self._advantages.view(-1, 1),
-                "b_return": self._returns.view(-1, 1),
-            }
+    def get(self, key: str) -> th.Tensor:
+        # flatten the batc
+        if key == "b_obs":
+            return self._observations.view((-1, *self._obs_shape))
+        elif key == "b_action":
+            return self._actions.view((-1, self._action_dim))
+        elif key == "b_log_prob":
+            return self._log_probs.view(-1, 1)
+        elif key == "b_value":
+            return self._values.view(-1, 1)
+        elif key == "b_advantage":
+            return self._advantages.view(-1, 1)
+        elif key == "b_return":
+            return self._returns.view(-1, 1)
+        elif key == "b_reward":
+            return self._rewards.view(-1, 1)
+        elif key == "b_done":
+            return self._dones.view(-1, 1)
         else:
-            return {
-                "b_obs": self._observations.view((-1, *self._obs_shape)),
-                "b_action": self._actions.view((-1, self._action_dim)),
-                "b_log_prob": self._log_probs.view(-1, 1),
-                "b_value": self._values.view(-1, 1),
-                "b_advantage": self._advantages.view(-1, 1),
-                "b_return": self._returns.view(-1, 1),
-                "b_reward": self._rewards.view(-1, 1),
-            }
+            raise ValueError(f"Invalid key: {key}")

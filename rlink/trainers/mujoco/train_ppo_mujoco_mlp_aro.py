@@ -391,28 +391,18 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             next_value = next_value.flatten()  # (num_envs,)
             rollout_buffer.compute_returns_and_advantages(next_value, next_done)
 
-        # Get rollout data from buffer
-        rollout_data = rollout_buffer.get(only_return=False)
-        b_obs = rollout_data["b_obs"]
-        b_action = rollout_data["b_action"]
-        b_log_prob = rollout_data["b_log_prob"]
-        b_value = rollout_data["b_value"]
-        b_advantage = rollout_data["b_advantage"]
-        b_return = rollout_data["b_return"]
-        b_reward = rollout_data["b_reward"]
-
         # Update policy
         train_data = train_step(
-            args,
-            agent,
-            b_obs,
-            b_action,
-            b_log_prob,
-            b_value,
-            b_advantage,
-            b_return,
-            b_reward,
-            optimizer,
+            args=args,
+            agent=agent,
+            b_obs=rollout_buffer.get("b_obs"),
+            b_action=rollout_buffer.get("b_action"),
+            b_log_prob=rollout_buffer.get("b_log_prob"),
+            b_value=rollout_buffer.get("b_value"),
+            b_advantage=rollout_buffer.get("b_advantage"),
+            b_return=rollout_buffer.get("b_return"),
+            b_reward=rollout_buffer.get("b_reward"),
+            optimizer=optimizer,
         )
 
         train_time = time.time() - train_start_time
