@@ -36,7 +36,8 @@ def ppo_evaluate(
     while len(episodic_returns) < eval_episodes:
         actions, _, _ = agent.get_action(obs)
         next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
-        next_obs = th.tensor(next_obs, dtype=th.float32, device=device)
+        next_obs = th.tensor(next_obs, dtype=th.float32, device=device)  # (num_envs, *obs_shape)
+
         if "final_info" in infos:
             for info in infos["final_info"]:
                 if "episode" not in info:
