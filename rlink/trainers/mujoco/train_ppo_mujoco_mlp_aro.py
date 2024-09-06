@@ -336,8 +336,8 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
             # bootstrap value if truncated
             # https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/common/on_policy_algorithm.py#L213
-            for idx, trunction in enumerate(truncations):
-                if trunction:
+            for idx, truncation in enumerate(truncations):
+                if truncation:
                     final_prev_action = action[idx].reshape(1, -1)  # (1, *action_shape)
                     final_obs = infos["final_observation"]  # (num_envs, *obs_shape)
                     final_obs = final_obs[idx].reshape(1, -1)  # (1, *obs_shape)
