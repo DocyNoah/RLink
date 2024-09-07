@@ -104,6 +104,12 @@ class RolloutBufferTorch:
     def compute_returns_and_advantages(self, final_value: th.Tensor, final_done: th.Tensor) -> None:
         # final_value: (n_envs, 1)
         # final_done: (n_envs, 1)
+        # fmt: off
+        assert final_value.shape == (self._n_envs, 1), \
+            f"final_value expected: {(self._n_envs, 1)}, got: {final_value.shape}"
+        assert final_done.shape == (self._n_envs, 1), \
+            f"final_done expected: {(self._n_envs, 1)}, got: {final_done.shape}"
+        # fmt: on
 
         # Compute advantage
         last_gae_lam = 0
