@@ -183,7 +183,7 @@ class Agent(nn.Module):
 
         x = th.cat([x[-1], aro[-1]], dim=-1)  # get last hidden state
         value = self.critic(x)
-        return value
+        return value  # (num_envs, 1)
 
     def get_action(
         self,

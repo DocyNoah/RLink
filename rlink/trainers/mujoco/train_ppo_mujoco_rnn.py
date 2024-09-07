@@ -167,19 +167,19 @@ class Agent(nn.Module):
             elif "weight" in name:
                 nn.init.orthogonal_(param, 1.0)
 
-    def get_value(self, x: th.Tensor) -> th.Tensor:
-        x, _ = self.critic1(x)
+    def get_value(self, obs: th.Tensor) -> th.Tensor:
+        x, _ = self.critic1(obs)
         x, _ = self.critic2(x)
         x = x[-1]  # get last hidden state
-        x = self.critic3(x)  # (num_envs, 1)
-        return x
+        value = self.critic3(x)
+        return value  # (num_envs, 1)
 
     def get_action(
         self,
-        x: th.Tensor,
+        obs: th.Tensor,
         action: th.Tensor | None = None,
     ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
-        x, _ = self.actor_mean1(x)
+        x, _ = self.actor_mean1(obs)
         x, _ = self.actor_mean2(x)
         x = x[-1]  # get last hidden state
         action_mean = self.actor_mean3(x)  # (num_envs, out_features)

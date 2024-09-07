@@ -147,15 +147,15 @@ class Agent(nn.Module):
         )
         self.actor_logstd = nn.Parameter(th.zeros(1, out_features))
 
-    def get_value(self, x: th.Tensor) -> th.Tensor:
-        return self.critic(x)  # (num_envs, 1)
+    def get_value(self, obs: th.Tensor) -> th.Tensor:
+        return self.critic(obs)  # (num_envs, 1)
 
     def get_action(
         self,
-        x: th.Tensor,
+        obs: th.Tensor,
         action: th.Tensor | None = None,
     ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
-        action_mean = self.actor_mean(x)  # (num_envs, out_features)
+        action_mean = self.actor_mean(obs)  # (num_envs, out_features)
         action_logstd = self.actor_logstd.expand_as(action_mean)  # (num_envs, out_features)
         action_std = th.exp(action_logstd)  # (num_envs, out_features)
         probs = Normal(action_mean, action_std)  # (num_envs, out_features)
