@@ -269,7 +269,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         gae_lambda=args.gae_lambda,
         gamma=args.gamma,
     )
-    seq_queue = th_util.SequenceQueue(seq_len=args.seq_len)  # for context
+    obs_queue = th_util.TensorQueue(seq_len=args.seq_len)  # for context
 
     # Logging variables
     epi_l_queue = collections.deque(maxlen=30)
@@ -282,7 +282,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     obs, _ = envs.reset(seed=args.seed)
     obs = th.tensor(obs, dtype=th.float32, device=device)  # (num_envs, *obs_shape)
     done = th.zeros((args.num_envs, 1), device=device)  # (num_envs, 1)
-    seq_queue.append(obs)
+    obs_queue.append(obs)
 
     for iteration in range(1, args.num_iterations + 1):
         collect_start_time = time.time()
@@ -299,7 +299,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
 
             # Get action
             with th.no_grad():
-                obs_seq = seq_queue.get_obs_seq()
+                obs_seq = obs_queue.get_seq()
                 action, logprob, _ = agent.get_action(obs_seq)
                 value = agent.get_value(obs_seq)  # (num_envs, 1)
 
@@ -322,7 +322,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
                     final_obs = infos["final_observation"]  # (num_envs, *obs_shape)
                     final_obs = final_obs[idx].reshape(1, -1)  # (1, *obs_shape)
                     final_obs = th.tensor(final_obs, dtype=th.float32, device=device)
-                    obs_seq = seq_queue.get_single_seq(idx, final_obs)  # (seq_len, 1, *obs_shape)
+                    obs_seq = obs_queue.get_single_seq(idx, final_obs)  # (seq_len, 1, *obs_shape)
                     with th.no_grad():
                         final_value = agent.get_value(obs_seq)  # (1, 1)
                     reward[idx] += args.gamma * final_value.squeeze()  # scalar
@@ -333,7 +333,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             # Update data for next step
             obs = next_obs
             done = next_done
-            seq_queue.append(obs)
+            obs_queue.append(obs)
             global_episode += int(th.sum(done).item())
 
             # Logging a episode for one env at the same time
@@ -354,7 +354,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         # Compute value for the last step after the num_steps
         # bootstrap value if not done
         with th.no_grad():
-            next_value = agent.get_value(next_obs)  # (num_envs, 1)
+            next_value = agent.get_value(next_obs)  # (num_envs, 1)  # TODO next_obs -> next_obs_seq
             rollout_buffer.compute_returns_and_advantages(next_value, next_done)
 
         # Update policy

@@ -33,13 +33,13 @@ def ppo_evaluate(
     agent.load_state_dict(th.load(model_path, map_location=device, weights_only=True))
     agent.eval()
 
-    seq_queue = th_util.SequenceQueue(seq_len)
+    obs_queue = th_util.TensorQueue(seq_len)
     obs, _ = envs.reset()
     obs = th.tensor(obs, dtype=th.float32, device=device)
-    seq_queue.append(obs)
+    obs_queue.append(obs)
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
-        action, _, _ = agent.get_action(seq_queue.get_obs_seq())
+        action, _, _ = agent.get_action(obs_queue.get_seq())
         next_obs, _, _, _, infos = envs.step(action.cpu().numpy())
         next_obs = th.tensor(next_obs, dtype=th.float32, device=device)  # (num_envs, *obs_shape)
 
@@ -52,6 +52,6 @@ def ppo_evaluate(
                 )
                 episodic_returns += [info["episode"]["r"]]
         obs = next_obs
-        seq_queue.append(obs)
+        obs_queue.append(obs)
 
     return episodic_returns
