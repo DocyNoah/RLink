@@ -354,7 +354,7 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
         # Compute value for the last step after the num_steps
         # bootstrap value if not done
         with th.no_grad():
-            next_value = agent.get_value(next_obs)  # (num_envs, 1)  # TODO next_obs -> next_obs_seq
+            next_value = agent.get_value(obs_queue.get_seq())  # (num_envs, 1)
             rollout_buffer.compute_returns_and_advantages(next_value, next_done)
 
         # Update policy
@@ -439,7 +439,6 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     writer.close()
     if args.use_wandb:
         wandb.finish()
-        print("wandb finished")
 
 
 def train_step(
