@@ -472,7 +472,6 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     writer.close()
     if args.use_wandb:
         wandb.finish()
-        print("wandb finished")
 
 
 def train_step(
@@ -505,7 +504,7 @@ def train_step(
             mb_reward = b_reward[mb_inds]  # (mb_size, 1)
 
             # for previous action
-            prev_mb_inds = mb_inds - 1  # (mb_size,)
+            prev_mb_inds = mb_inds - args.num_envs  # (mb_size,)
             mask_prev = prev_mb_inds >= 0  # True: valid index, False: padding index
             prev_mb_inds = prev_mb_inds.clip(min=0)  # clip negative index to 0
             mb_prev_action = b_action[prev_mb_inds]  # (mb_size, action_shape)
