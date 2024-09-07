@@ -46,6 +46,7 @@ def ppo_evaluate(
                     f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}"
                 )
                 episodic_returns += [info["episode"]["r"]]
+
         obs = next_obs
 
     return episodic_returns
