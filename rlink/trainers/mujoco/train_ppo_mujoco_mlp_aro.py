@@ -388,7 +388,6 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
                 next_obs, action, reward
             )  # (num_envs, *action_shape)
             next_value = agent.get_value(next_obs, action, reward, next_action)  # (num_envs, 1)
-            next_value = next_value.flatten()  # (num_envs,)
             rollout_buffer.compute_returns_and_advantages(next_value, next_done)
 
         # Update policy
@@ -528,35 +527,34 @@ def train_step(
 
             with th.no_grad():
                 # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                old_approx_kl = (-log_ratio).mean()  # (mb_size,) -> scalar
-                approx_kl = ((ratio - 1) - log_ratio).mean()  # (mb_size,) -> scalar
+                old_approx_kl = (-log_ratio).mean()  # (mb_size, 1) -> scalar
+                approx_kl = ((ratio - 1) - log_ratio).mean()  # (mb_size, 1) -> scalar
                 clip_fracs.append(((ratio - 1.0).abs() > args.clip_coef).float().mean().item())
 
             if args.norm_adv:
                 mb_advantage = (mb_advantage - mb_advantage.mean()) / (mb_advantage.std() + 1e-8)
 
             # Policy loss
-            clipped_ratio = ratio.clamp(1 - args.clip_coef, 1 + args.clip_coef)  # (mb_size,)
-            pg_loss1 = -mb_advantage * ratio  # (mb_size,)
-            pg_loss2 = -mb_advantage * clipped_ratio  # (mb_size,)
-            pg_loss = th.max(pg_loss1, pg_loss2).mean()  # (mb_size,)
+            clipped_ratio = ratio.clamp(1 - args.clip_coef, 1 + args.clip_coef)  # (mb_size, 1)
+            pg_loss1 = -mb_advantage * ratio  # (mb_size, 1)
+            pg_loss2 = -mb_advantage * clipped_ratio  # (mb_size, 1)
+            pg_loss = th.max(pg_loss1, pg_loss2).mean()  # (mb_size, 1) -> scalar
 
             # Value loss
-            new_value = new_value.flatten()  # (mb_size, 1) -> (mb_size,)
             if args.clip_vloss:
-                v_loss_unclipped = (new_value - mb_return) ** 2  # (mb_size,)
-                v_clipped = mb_value + th.clamp(  # (mb_size,)
+                v_loss_unclipped = (new_value - mb_return) ** 2  # (mb_size, 1)
+                v_clipped = mb_value + th.clamp(  # (mb_size, 1)
                     new_value - mb_value,
                     -args.clip_coef,
                     args.clip_coef,
                 )
-                v_loss_clipped = (v_clipped - mb_return) ** 2  # (mb_size,)
-                v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)  # (mb_size,)
+                v_loss_clipped = (v_clipped - mb_return) ** 2  # (mb_size, 1)
+                v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)  # (mb_size, 1)
                 v_loss = 0.5 * v_loss_max.mean()  # scalar
             else:
-                v_loss = 0.5 * ((new_value - mb_return) ** 2).mean()  # scalar
+                v_loss = 0.5 * ((new_value - mb_return) ** 2).mean()  # (mb_size, 1) -> scalar
 
-            entropy_loss = entropy.mean()  # scalar
+            entropy_loss = entropy.mean()  # (mb_size, 1) -> scalar
             loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef  # scalar
 
             optimizer.zero_grad()
