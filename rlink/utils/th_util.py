@@ -25,17 +25,17 @@ class TensorQueue:
     def append(self, tensor: th.Tensor) -> None:
         self._tensor_queue.append(tensor)  # (seq_len, n_envs, *data_shape)
 
-    def get_seq(self, tensor: th.Tensor | None = None) -> th.Tensor:
-        if tensor is None:
-            return th.stack(list(self._tensor_queue))  # (seq_len, n_envs, *data_shape)
-
-        seq = list(self._tensor_queue)
-        seq.append(tensor)
-        seq = seq[1:]  # (seq_len, n_envs, *data_shape)
-        return th.stack(seq)
-
     def override(self, idx: int, tensor: th.Tensor) -> None:
         self._tensor_queue[-1][idx] = tensor
+
+    def get_seq(self, tensor: th.Tensor | None = None) -> th.Tensor:
+        seq_list = list(self._tensor_queue)  # (seq_len, n_envs, *data_shape)
+        if tensor is not None:
+            seq_list.append(tensor)  # (seq_len + 1, n_envs, *data_shape)
+            seq_list = seq_list[1:]  # (seq_len, n_envs, *data_shape)
+        seq = th.stack(seq_list)
+
+        return seq
 
     def get_single_seq(self, idx: int, tensor: th.Tensor | None = None) -> th.Tensor:
         single_seq_list = [x[idx].unsqueeze(0) for x in self._tensor_queue]
