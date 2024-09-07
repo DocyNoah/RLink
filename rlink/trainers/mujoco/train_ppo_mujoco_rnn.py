@@ -470,7 +470,7 @@ def train_step(
 
             # Sample mini-batch
             mb_obs = b_obs[seq_mb_inds]  # (seq_len, mb_size, *obs_shape)
-            mb_obs[~padding_mask] = 0
+            mb_obs[~padding_mask] = 0  # padding with 0
             mb_action = b_action[mb_inds]  # (mb_size, *action_shape)
             mb_log_prob = b_log_prob[mb_inds]  # (mb_size, 1)
             mb_value = b_value[mb_inds]  # (mb_size, 1)
