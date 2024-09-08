@@ -13,6 +13,7 @@ import tyro
 from torch.distributions.normal import Normal
 
 from rlink.buffers.rollout_buffer_torch import RolloutBufferTorch
+from rlink.policies.actor_critic_policy import ActorCriticGruPolicy
 from rlink.utils import common, th_util, time_util
 
 
@@ -87,6 +88,18 @@ class Args:
     """the target KL divergence threshold"""
     seq_len: int = 3
     """the sequence length for context"""
+
+    # Neural network specific arguments
+    hidden_sizes: list[int] = (64, 64)
+    """the hidden sizes of the neural networks"""
+    activation_fn: str = "tanh"
+    """the activation function of the neural networks"""
+    layer_norm: bool = False
+    """if toggled, layer normalization will be used"""
+    ortho_init: bool | float = True
+    """if toggled, orthogonal initialization will be used"""
+    logstd_init: float = 0.0
+    """the initial value of the log standard deviation"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -196,7 +209,7 @@ class Agent(nn.Module):
         return action, probs.log_prob(action).sum(1, keepdim=True), probs.entropy().sum(1)
 
 
-def train_ppo(args: Args, Agent: type[Agent]) -> None:
+def train_ppo(args: Args, Agent: type[ActorCriticGruPolicy]) -> None:
     # Set hyperparameters
     args.batch_size = int(args.num_envs * args.num_steps)
     args.num_iterations = args.total_timesteps // args.batch_size
@@ -256,6 +269,11 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
     agent = Agent(
         in_features=np.array(envs.single_observation_space.shape).prod(),
         out_features=np.array(envs.single_action_space.shape).prod(),
+        hidden_sizes=args.hidden_sizes,
+        activation_fn=args.activation_fn,
+        layer_norm=args.layer_norm,
+        ortho_init=args.ortho_init,
+        logstd_init=args.logstd_init,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
@@ -426,6 +444,9 @@ def train_ppo(args: Args, Agent: type[Agent]) -> None:
             model_kwargs={
                 "in_features": np.array(envs.single_observation_space.shape).prod(),
                 "out_features": np.array(envs.single_action_space.shape).prod(),
+                "hidden_sizes": args.hidden_sizes,
+                "activation_fn": args.activation_fn,
+                "layer_norm": args.layer_norm,
             },
             seq_len=args.seq_len,
             device=device,

@@ -93,7 +93,10 @@ class TensorQueue:
 #         return single_seq
 
 
-def get_activation_fn(activation_fn: str) -> type[nn.Module]:
+def get_activation_fn(activation_fn: str | type[nn.Module]) -> type[nn.Module]:
+    if not isinstance(activation_fn, str) and issubclass(activation_fn, nn.Module):
+        return activation_fn
+
     activation_fn = activation_fn.lower()
 
     if activation_fn == "tanh":
@@ -123,8 +126,7 @@ def mlp(
     activation_fn: type[nn.Module] | str,
     layer_norm: bool = False,
 ) -> nn.Module:
-    if isinstance(activation_fn, str):
-        activation_fn = get_activation_fn(activation_fn)
+    activation_fn = get_activation_fn(activation_fn)
 
     assert issubclass(activation_fn, nn.Module)
 
@@ -139,3 +141,35 @@ def mlp(
         layers.append(activation_fn())
     layers.append(nn.Linear(hidden_sizes[-1], output_dim))
     return nn.Sequential(*layers)
+
+
+def gru(
+    input_dim: int,
+    output_dim: int,
+    hidden_sizes: list[int],
+    activation_fn: type[nn.Module] | str,
+    layer_norm: bool = False,
+) -> tuple[nn.Module, nn.Module, nn.Module]:
+    activation_fn = get_activation_fn(activation_fn)
+
+    # fmt: off
+    assert issubclass(activation_fn, nn.Module)
+    assert all(hidden_sizes[0] == x for x in hidden_sizes), \
+        f"All hidden sizes must be the same, but got {hidden_sizes}"
+    # fmt: on
+
+    # encoder
+    encoder_layers = []
+    encoder_layers.append(nn.Linear(input_dim, hidden_sizes[0]))
+    if layer_norm:
+        encoder_layers.append(nn.LayerNorm(hidden_sizes[0]))
+    encoder_layers.append(activation_fn())
+    encoder = nn.Sequential(*encoder_layers)
+
+    # gru
+    gru = nn.GRU(hidden_sizes[0], hidden_sizes[-1], num_layers=len(hidden_sizes) - 1)
+
+    # decoder
+    decoder = nn.Linear(hidden_sizes[-1], output_dim)
+
+    return encoder, gru, decoder
