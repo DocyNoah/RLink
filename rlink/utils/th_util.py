@@ -91,3 +91,51 @@ class TensorQueue:
 #         single_seq = th.stack(single_seq_list)  # (seq_len, 1, *obs_shape)
 
 #         return single_seq
+
+
+def get_activation_fn(activation_fn: str) -> type[nn.Module]:
+    activation_fn = activation_fn.lower()
+
+    if activation_fn == "tanh":
+        return nn.Tanh
+    elif activation_fn == "relu":
+        return nn.ReLU
+    elif activation_fn == "leaky_relu":
+        return nn.LeakyReLU
+    elif activation_fn == "sigmoid":
+        return nn.Sigmoid
+    elif activation_fn == "softmax":
+        return nn.Softmax
+    elif activation_fn == "swish":
+        return nn.SiLU
+    elif activation_fn == "gelu":
+        return nn.GELU
+    elif activation_fn == "elu":
+        return nn.ELU
+    else:
+        raise ValueError(f"Invalid activation function: {activation_fn}")
+
+
+def mlp(
+    input_dim: int,
+    output_dim: int,
+    hidden_sizes: list[int],
+    activation_fn: type[nn.Module] | str,
+    layer_norm: bool = False,
+) -> nn.Module:
+    if isinstance(activation_fn, str):
+        activation_fn = get_activation_fn(activation_fn)
+
+    assert issubclass(activation_fn, nn.Module)
+
+    layers = []
+    for i in range(len(hidden_sizes)):
+        if i == 0:
+            layers.append(nn.Linear(input_dim, hidden_sizes[i]))
+        else:
+            layers.append(nn.Linear(hidden_sizes[i - 1], hidden_sizes[i]))
+        if layer_norm:
+            layers.append(nn.LayerNorm(hidden_sizes[i]))
+        layers.append(activation_fn())
+    layers.append(nn.Linear(hidden_sizes[-1], output_dim))
+    return nn.Sequential(*layers)
